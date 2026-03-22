@@ -10,6 +10,7 @@
 - 可切换/自定义推送模板
 - 自动轮询并推送更新
 - 兼容 AstrBot 在仅传入 `context` 时的插件初始化方式
+- 兼容 AstrBot 在 `get_astrbot_data_path()` 返回字符串时的路径处理方式
 
 ## 命令
 

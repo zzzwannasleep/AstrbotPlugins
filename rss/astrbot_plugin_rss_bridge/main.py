@@ -76,7 +76,7 @@ class RSSBridgePlugin(Star):
         self._poll_task: asyncio.Task | None = None
         self._session: aiohttp.ClientSession | None = None
         self._state: dict[str, Any] | None = None
-        self._data_dir: Path = get_astrbot_data_path() / "plugin_data" / PLUGIN_NAME
+        self._data_dir: Path = Path(get_astrbot_data_path()) / "plugin_data" / PLUGIN_NAME
         self._state_file: Path = self._data_dir / "state.json"
 
     @filter.on_astrbot_loaded()
