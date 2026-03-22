@@ -14,6 +14,8 @@
 - 支持预览某个已订阅 RSS 的真实内容样式
 - 图片模板会根据标题长度自动优化字号与换行
 - 自动轮询并推送更新
+- 支持直接订阅 `https://bangumi.tv/calendar`，自动转换为 Bangumi 每日放送聚合推送
+- 支持直接订阅 `https://yuc.wiki/new/` 或 `https://yuc.wiki/atom.xml`，自动拆分为 YUC 单番剧更新推送
 - 兼容 AstrBot 在仅传入 `context` 时的插件初始化方式
 - 兼容 AstrBot 在 `get_astrbot_data_path()` 返回字符串时的路径处理方式
 
@@ -44,6 +46,24 @@
 /rss add "少数派" https://sspai.com/feed
 ```
 
+Bangumi 每日放送示例：
+
+```text
+/rss add "Bangumi今日放送" https://bangumi.tv/calendar
+/rss check "Bangumi今日放送"
+```
+
+> 添加 `https://bangumi.tv/calendar` 后，插件会自动转成“按北京时间每天 1 条”的今日放送聚合消息。
+
+YUC 新番卫星观测站示例：
+
+```text
+/rss add "YUC新番" https://yuc.wiki/new/
+/rss check "YUC新番"
+```
+
+> 也可以直接填 `https://yuc.wiki/atom.xml`。插件会自动按 `https://yuc.wiki/new/` 页面拆分为“每个新增/变更番剧 1 条消息”，并在摘要里带上栏目名，例如“备战2027”。
+
 ## 配置项
 
 - `poll_interval_seconds`：轮询间隔，默认 300 秒
@@ -70,11 +90,14 @@
 - 插件会把每个群的订阅独立存储。
 - 每个群都可以单独覆盖文本模板、图片模板、推送模式和预览模式。
 - 新增订阅时会把当前 feed 内容记录为基线，不会立即补发历史消息。
+- `https://bangumi.tv/calendar` 属于特殊适配源：添加后会在下一次轮询或手动 `/rss check` 时直接推送当天的“今日放送”聚合内容。
+- `https://yuc.wiki/new/` / `https://yuc.wiki/atom.xml` 属于特殊适配源：插件会解析页面栏目与单个番剧卡片；后续只要新增番剧，或番剧的栏目/档期等信息发生变化，就会单独推送 1 条。
 - 默认只有群管理员可以管理订阅，普通成员默认可查看列表和帮助。
 - 图片模式依赖 AstrBot 自带文转图能力；若失败会自动回退为文本推送。
 - 为提升清晰度，插件会使用 PNG + `scale=device` + 更宽画布进行渲染。
 - 文转图会先生成高清原图；当 `image_compression_quality` 小于 100 时，再压缩为高质量 JPEG 发送。
 - 图片模式默认不截断摘要，因此可以输出更长的长图；如果你想限制长度，可把 `image_summary_max_length` 调成非 0。
+- 如果你希望 Bangumi 每日放送尽量完整展示，建议把群推送模式设为图片：`/rss style render image`
 - 图片模式下会采用“图片 + 外部来源链接”的形式：链接不再放进图片内部，图片底部显示北京时间。
 - 标题过长时，图片模板会自动减小字号并优化换行，减少拥挤和断行难看的问题。
 - 插件状态文件保存在 `data/plugin_data/astrbot_plugin_rss_bridge/state.json`。

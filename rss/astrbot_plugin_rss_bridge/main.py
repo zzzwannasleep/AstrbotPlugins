@@ -6,11 +6,12 @@ import html
 import json
 import re
 import shlex
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from uuid import uuid4
 
 import aiohttp
@@ -25,6 +26,28 @@ PLUGIN_NAME = "astrbot_plugin_rss_bridge"
 STATE_VERSION = 1
 MAX_SEEN_CACHE = 200
 DEFAULT_USER_AGENT = "astrbot-plugin-rss-bridge/0.1.0"
+BEIJING_TIMEZONE = timezone(timedelta(hours=8))
+BANGUMI_CALENDAR_PAGE_URL = "https://bangumi.tv/calendar"
+BANGUMI_CALENDAR_API_URL = "https://api.bgm.tv/calendar"
+BANGUMI_CALENDAR_HOSTS = {
+    "bangumi.tv",
+    "www.bangumi.tv",
+    "bgm.tv",
+    "www.bgm.tv",
+    "api.bgm.tv",
+}
+BANGUMI_WEEKDAY_LABELS = {
+    1: "星期一",
+    2: "星期二",
+    3: "星期三",
+    4: "星期四",
+    5: "星期五",
+    6: "星期六",
+    7: "星期日",
+}
+YUC_NEW_PAGE_URL = "https://yuc.wiki/new/"
+YUC_NEW_ATOM_URL = "https://yuc.wiki/atom.xml"
+YUC_NEW_HOSTS = {"yuc.wiki", "www.yuc.wiki"}
 MESSAGE_TEMPLATE_PRESETS = {
     "classic": (
         "【RSS 更新】{alias}\n"
@@ -77,7 +100,7 @@ IMAGE_TEMPLATE_PRESETS = {
     .title.title-long { font-size: 26px; line-height: 1.58; }
     .title.title-xlong { font-size: 23px; line-height: 1.65; }
     .meta { font-size: 20px; color: #dbeafe; margin-bottom: 18px; }
-    .summary { font-size: 24px; line-height: 1.7; color: #e2e8f0; background: rgba(255,255,255,0.08); border-radius: 20px; padding: 20px 22px; }
+    .summary { font-size: 24px; line-height: 1.7; color: #e2e8f0; background: rgba(255,255,255,0.08); border-radius: 20px; padding: 20px 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .footer { margin-top: 22px; font-size: 16px; color: rgba(255,255,255,0.75); }
   </style>
 </head>
@@ -109,7 +132,7 @@ IMAGE_TEMPLATE_PRESETS = {
     .title.title-long { font-size: 28px; line-height: 1.58; }
     .title.title-xlong { font-size: 25px; line-height: 1.65; }
     .meta { font-size: 19px; color: #6b7280; margin-bottom: 18px; }
-    .summary { font-size: 24px; line-height: 1.85; text-align: justify; column-count: 2; column-gap: 28px; }
+    .summary { font-size: 24px; line-height: 1.85; text-align: justify; column-count: 2; column-gap: 28px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .footer { margin-top: 18px; font-size: 16px; color: #92400e; border-top: 1px dashed #b45309; padding-top: 12px; }
   </style>
 </head>
@@ -145,7 +168,7 @@ IMAGE_TEMPLATE_PRESETS = {
     .title.title-medium { font-size: 28px; line-height: 1.55; }
     .title.title-long { font-size: 25px; line-height: 1.62; }
     .title.title-xlong { font-size: 22px; line-height: 1.7; }
-    .summary { background: rgba(15,23,42,0.25); border-radius: 22px; padding: 18px 20px; font-size: 23px; line-height: 1.72; color: #eef2ff; }
+    .summary { background: rgba(15,23,42,0.25); border-radius: 22px; padding: 18px 20px; font-size: 23px; line-height: 1.72; color: #eef2ff; white-space: pre-wrap; overflow-wrap: anywhere; }
     .footer { margin-top: 18px; font-size: 16px; color: #dbeafe; }
   </style>
 </head>
@@ -178,7 +201,7 @@ IMAGE_TEMPLATE_PRESETS = {
     .title.title-long { font-size: 26px; line-height: 1.62; }
     .title.title-xlong { font-size: 23px; line-height: 1.7; }
     .meta { color: #6b7280; font-size: 18px; margin-bottom: 18px; }
-    .summary { font-size: 22px; line-height: 1.75; color: #1f2937; }
+    .summary { font-size: 22px; line-height: 1.75; color: #1f2937; white-space: pre-wrap; overflow-wrap: anywhere; }
     .footer { margin-top: 20px; font-size: 16px; color: #6b7280; }
   </style>
 </head>
@@ -368,6 +391,9 @@ class RSSBridgePlugin(Star):
             logger.warning("[%s] RSS 链接校验失败: %s", PLUGIN_NAME, exc)
             return f"添加失败：{exc}"
 
+        is_bangumi_calendar = self._is_bangumi_calendar_url(url)
+        is_yuc_new = self._is_yuc_new_url(url)
+        seen_entries = probe["seen_entries"]
         umo = event.unified_msg_origin
         async with self._refresh_lock:
             await self._ensure_state_loaded()
@@ -383,7 +409,7 @@ class RSSBridgePlugin(Star):
                     "feed_title": probe["feed_title"],
                     "etag": probe["etag"],
                     "last_modified": probe["last_modified"],
-                    "seen_entries": probe["seen_entries"],
+                    "seen_entries": seen_entries,
                     "initialized": True,
                     "last_checked_at": self._now_iso(),
                     "last_error": "",
@@ -391,7 +417,21 @@ class RSSBridgePlugin(Star):
                 await self._save_state_locked()
 
         title = probe["feed_title"] or "未识别标题"
-        count = len(probe["seen_entries"])
+        count = len(seen_entries)
+        if is_yuc_new:
+            return (
+                f"已添加订阅：{alias}\n"
+                f"源标题：{title}\n"
+                "已识别为 YUC 新番卫星观测站，将按“每个新增/变更番剧 1 条消息”推送。\n"
+                "消息标题为番剧名，摘要里会带栏目名。"
+            )
+        if is_bangumi_calendar:
+            return (
+                f"已添加订阅：{alias}\n"
+                f"源标题：{title}\n"
+                "已识别为 Bangumi 每日放送，将按北京时间每天生成 1 条“今日放送”聚合推送。\n"
+                f"如需现在立刻发送今天内容，可执行：/rss check {alias}"
+            )
         return (
             f"已添加订阅：{alias}\n"
             f"源标题：{title}\n"
@@ -728,6 +768,20 @@ class RSSBridgePlugin(Star):
         etag: str | None = None,
         last_modified: str | None = None,
     ) -> dict[str, Any]:
+        if self._is_yuc_new_url(url):
+            return await self._fetch_yuc_new_feed(
+                url,
+                etag=etag,
+                last_modified=last_modified,
+            )
+
+        if self._is_bangumi_calendar_url(url):
+            return await self._fetch_bangumi_calendar_feed(
+                url,
+                etag=etag,
+                last_modified=last_modified,
+            )
+
         session = await self._get_session()
         headers: dict[str, str] = {}
         if etag:
@@ -766,6 +820,295 @@ class RSSBridgePlugin(Star):
             "etag": response_etag,
             "last_modified": response_last_modified,
         }
+
+    async def _fetch_yuc_new_feed(
+        self,
+        url: str,
+        etag: str | None = None,
+        last_modified: str | None = None,
+    ) -> dict[str, Any]:
+        session = await self._get_session()
+        headers = {"Accept": "text/html,application/xhtml+xml"}
+        if etag:
+            headers["If-None-Match"] = etag
+        if last_modified:
+            headers["If-Modified-Since"] = last_modified
+
+        async with session.get(
+            YUC_NEW_PAGE_URL,
+            headers=headers,
+            allow_redirects=True,
+        ) as response:
+            if response.status == 304:
+                return {
+                    "not_modified": True,
+                    "feed_title": "YUC 新番卫星观测站",
+                    "entries": [],
+                    "etag": etag,
+                    "last_modified": last_modified,
+                }
+            if response.status >= 400:
+                raise RuntimeError(f"YUC 新番页请求失败，HTTP {response.status}")
+            body = await response.read()
+
+        html_text = body.decode("utf-8-sig", "ignore")
+        parser = _YucNewHTMLParser(page_url=YUC_NEW_PAGE_URL)
+        parser.feed(html_text)
+        parser.close()
+
+        page_updated = parser.page_updated or self._beijing_now()
+        published_text = page_updated.strftime("%Y-%m-%d %H:%M:%S %z")
+        entries = [
+            self._normalize_yuc_new_entry(item, default_published=published_text)
+            for item in parser.items
+        ]
+
+        synthetic_etag = hashlib.sha1(
+            "||".join(sorted(item["fingerprint"] for item in entries)).encode(
+                "utf-8",
+                "ignore",
+            )
+        ).hexdigest()
+        synthetic_last_modified = page_updated.astimezone(timezone.utc).strftime(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
+        if (
+            (etag and synthetic_etag == etag)
+            or (last_modified and synthetic_last_modified == last_modified)
+        ):
+            return {
+                "not_modified": True,
+                "feed_title": parser.feed_title or "YUC 新番卫星观测站",
+                "entries": [],
+                "etag": synthetic_etag,
+                "last_modified": synthetic_last_modified,
+            }
+
+        return {
+            "not_modified": False,
+            "feed_title": parser.feed_title or "YUC 新番卫星观测站",
+            "entries": entries,
+            "etag": synthetic_etag,
+            "last_modified": synthetic_last_modified,
+        }
+
+    def _normalize_yuc_new_entry(
+        self,
+        item: dict[str, str],
+        default_published: str = "",
+    ) -> dict[str, str]:
+        title = self._clean_text(item.get("title") or "") or "未命名番剧"
+        section = self._clean_text(item.get("section") or "") or "未分组"
+        item_type = self._clean_text(item.get("type") or "")
+        schedule = self._clean_text(item.get("schedule") or "")
+        image = (item.get("image") or "").strip()
+        link = (item.get("link") or "").strip() or YUC_NEW_PAGE_URL
+
+        fingerprint_source = "||".join([section, title, item_type, schedule, image])
+        return {
+            "fingerprint": hashlib.sha1(
+                fingerprint_source.encode("utf-8", "ignore")
+            ).hexdigest(),
+            "title": title,
+            "link": link,
+            "summary": f"栏目：{section}",
+            "published": item.get("published") or default_published,
+        }
+
+    async def _fetch_bangumi_calendar_feed(
+        self,
+        url: str,
+        etag: str | None = None,
+        last_modified: str | None = None,
+    ) -> dict[str, Any]:
+        session = await self._get_session()
+        headers = {"Accept": "application/json"}
+        if etag:
+            headers["If-None-Match"] = etag
+        if last_modified:
+            headers["If-Modified-Since"] = last_modified
+
+        async with session.get(
+            BANGUMI_CALENDAR_API_URL,
+            headers=headers,
+            allow_redirects=True,
+        ) as response:
+            if response.status == 304:
+                return {
+                    "not_modified": True,
+                    "feed_title": "Bangumi 每日放送",
+                    "entries": [],
+                    "etag": etag,
+                    "last_modified": last_modified,
+                }
+            if response.status >= 400:
+                raise RuntimeError(f"Bangumi 每日放送请求失败，HTTP {response.status}")
+
+            body = await response.read()
+
+        try:
+            payload = json.loads(body.decode("utf-8-sig", "ignore"))
+        except Exception as exc:
+            raise RuntimeError(f"Bangumi 每日放送解析失败：{exc}") from exc
+
+        now = self._beijing_now()
+        today_items = self._extract_bangumi_calendar_items(payload, now.isoweekday())
+        entry = self._build_bangumi_calendar_entry(today_items, now, url)
+
+        synthetic_etag = self._build_bangumi_calendar_etag(today_items, now)
+        synthetic_last_modified = now.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        ).astimezone(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+        response_etag = synthetic_etag
+        response_last_modified = synthetic_last_modified
+        if (
+            (etag and response_etag == etag)
+            or (last_modified and response_last_modified == last_modified)
+        ):
+            return {
+                "not_modified": True,
+                "feed_title": "Bangumi 每日放送",
+                "entries": [],
+                "etag": response_etag,
+                "last_modified": response_last_modified,
+            }
+
+        return {
+            "not_modified": False,
+            "feed_title": "Bangumi 每日放送",
+            "entries": [entry],
+            "etag": response_etag,
+            "last_modified": response_last_modified,
+        }
+
+    def _extract_bangumi_calendar_items(self, payload: Any, weekday_id: int) -> list[dict[str, Any]]:
+        if isinstance(payload, dict):
+            sections = payload.get("value", [])
+        elif isinstance(payload, list):
+            sections = payload
+        else:
+            sections = []
+
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            weekday = section.get("weekday", {})
+            if not isinstance(weekday, dict):
+                continue
+            try:
+                current_weekday_id = int(weekday.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if current_weekday_id != weekday_id:
+                continue
+            items = section.get("items", [])
+            return [item for item in items if isinstance(item, dict)]
+        return []
+
+    def _build_bangumi_calendar_entry(
+        self,
+        items: list[dict[str, Any]],
+        now: datetime,
+        url: str,
+    ) -> dict[str, str]:
+        date_text = now.strftime("%Y-%m-%d")
+        weekday_label = BANGUMI_WEEKDAY_LABELS.get(now.isoweekday(), f"星期{now.isoweekday()}")
+        item_count = len(items)
+
+        title = f"Bangumi 今日放送（{date_text} {weekday_label}）共 {item_count} 部"
+        summary_lines = [
+            f"日期：{date_text} {weekday_label}",
+            f"共 {item_count} 部今日放送作品",
+            "",
+        ]
+
+        if items:
+            for index, item in enumerate(items, start=1):
+                display_name = self._bangumi_calendar_display_name(item)
+                meta = self._bangumi_calendar_meta(item)
+                line = f"{index}. {display_name}"
+                if meta:
+                    line += f"（{meta}）"
+                summary_lines.append(line)
+        else:
+            summary_lines.append("今天没有读取到 Bangumi 每日放送条目。")
+
+        return {
+            "fingerprint": hashlib.sha1(
+                f"bangumi-calendar:{date_text}".encode("utf-8", "ignore")
+            ).hexdigest(),
+            "title": title,
+            "link": BANGUMI_CALENDAR_PAGE_URL if self._is_bangumi_calendar_url(url) else url,
+            "summary": "\n".join(summary_lines).strip(),
+            "published": f"{date_text} 00:00:00 +0800",
+        }
+
+    def _build_bangumi_calendar_etag(
+        self,
+        items: list[dict[str, Any]],
+        now: datetime,
+    ) -> str:
+        item_identity = "|".join(str(item.get("id") or "") for item in items)
+        return hashlib.sha1(
+            f"bangumi-calendar:{now.strftime('%Y-%m-%d')}:{item_identity}".encode(
+                "utf-8",
+                "ignore",
+            )
+        ).hexdigest()
+
+    def _bangumi_calendar_display_name(self, item: dict[str, Any]) -> str:
+        name_cn = self._clean_text(str(item.get("name_cn") or ""))
+        name = self._clean_text(str(item.get("name") or ""))
+        if name_cn and name and name_cn.casefold() != name.casefold():
+            return f"{name_cn} / {name}"
+        return name_cn or name or f"Bangumi 条目 {item.get('id') or '-'}"
+
+    def _bangumi_calendar_meta(self, item: dict[str, Any]) -> str:
+        meta_parts: list[str] = []
+
+        rating = item.get("rating", {})
+        if isinstance(rating, dict):
+            score = rating.get("score")
+            if score not in (None, "", 0):
+                meta_parts.append(f"评分 {score}")
+
+        collection = item.get("collection", {})
+        if isinstance(collection, dict):
+            doing = collection.get("doing")
+            if isinstance(doing, int) and doing > 0:
+                meta_parts.append(f"{doing} 人在看")
+
+        return "，".join(meta_parts)
+
+    def _is_yuc_new_url(self, value: str) -> bool:
+        try:
+            parsed = urlparse(value.strip())
+        except Exception:
+            return False
+        host = parsed.netloc.lower().split("@")[-1].split(":")[0]
+        path = parsed.path.rstrip("/") or "/"
+        return (
+            parsed.scheme in {"http", "https"}
+            and host in YUC_NEW_HOSTS
+            and path in {"/new", "/atom.xml"}
+        )
+
+    def _is_bangumi_calendar_url(self, value: str) -> bool:
+        try:
+            parsed = urlparse(value.strip())
+        except Exception:
+            return False
+        host = parsed.netloc.lower().split("@")[-1].split(":")[0]
+        path = parsed.path.rstrip("/") or "/"
+        return (
+            parsed.scheme in {"http", "https"}
+            and host in BANGUMI_CALENDAR_HOSTS
+            and path == "/calendar"
+        )
 
     def _normalize_entry(self, entry: Any) -> dict[str, str]:
         title = self._clean_text(entry.get("title") or "") or "无标题"
@@ -1319,6 +1662,9 @@ class RSSBridgePlugin(Star):
             "/rss style text pretty\n"
             "/rss style image glass\n"
             "/rss style render image\n\n"
+            "特殊支持：\n"
+            f"- 直接订阅 {BANGUMI_CALENDAR_PAGE_URL}，会自动转换为 Bangumi 每日放送聚合推送\n\n"
+            f"- 直接订阅 {YUC_NEW_PAGE_URL} 或 {YUC_NEW_ATOM_URL}，会自动拆分为 YUC 单番剧更新推送\n\n"
             "如果名称里有空格，请使用引号，例如：\n"
             '/rss add "少数派" https://sspai.com/feed'
         )
@@ -1590,10 +1936,10 @@ class RSSBridgePlugin(Star):
         return datetime.now(timezone.utc).isoformat()
 
     def _render_timestamp_beijing(self) -> str:
-        from datetime import timedelta
+        return self._beijing_now().strftime("北京时间：%Y-%m-%d %H:%M:%S")
 
-        tz = timezone(timedelta(hours=8))
-        return datetime.now(tz).strftime("北京时间：%Y-%m-%d %H:%M:%S")
+    def _beijing_now(self) -> datetime:
+        return datetime.now(BEIJING_TIMEZONE)
 
     def _title_length_class(self, title: str) -> str:
         length = len((title or "").strip())
@@ -1609,3 +1955,132 @@ class RSSBridgePlugin(Star):
 class _SafeFormatDict(dict):
     def __missing__(self, key: str) -> str:
         return ""
+
+
+class _YucNewHTMLParser(HTMLParser):
+    def __init__(self, page_url: str):
+        super().__init__(convert_charrefs=True)
+        self.page_url = page_url
+        self.feed_title = "YUC 新番卫星观测站"
+        self.page_updated: datetime | None = None
+        self.current_section = "未分组"
+        self.items: list[dict[str, str]] = []
+        self._current_item: dict[str, str] | None = None
+        self._item_div_depth = 0
+        self._capture_field = ""
+        self._capture_end_tag = ""
+        self._capture_buffer: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
+        attr_map = {key: value or "" for key, value in attrs}
+        class_attr = attr_map.get("class", "")
+        style_attr = attr_map.get("style", "")
+
+        if tag == "meta":
+            if attr_map.get("property") == "og:title":
+                title = self._normalize_text(attr_map.get("content", ""))
+                if title:
+                    self.feed_title = title
+            elif attr_map.get("property") == "article:modified_time":
+                self._set_page_updated(attr_map.get("content", ""))
+            return
+
+        if tag == "time" and attr_map.get("itemprop") == "dateModified":
+            self._set_page_updated(attr_map.get("datetime", ""))
+
+        if self._current_item is None and tag == "div" and "float:left" in style_attr.replace(" ", "").lower():
+            self._current_item = {
+                "section": self.current_section,
+                "type": "",
+                "schedule": "",
+                "title": "",
+                "image": "",
+                "link": self.page_url,
+            }
+            self._item_div_depth = 1
+            return
+
+        if self._current_item is not None and tag == "div":
+            self._item_div_depth += 1
+
+        if tag == "p" and class_attr == "future_intro":
+            self._start_capture("section", "p")
+            return
+
+        if self._current_item is None:
+            return
+
+        if tag == "p" and class_attr.startswith("future_type"):
+            self._start_capture("type", "p")
+        elif tag == "p" and class_attr.startswith("future_date"):
+            self._start_capture("schedule", "p")
+        elif tag == "td" and "future_title" in class_attr:
+            self._start_capture("title", "td")
+        elif tag == "img":
+            image_url = attr_map.get("data-src") or attr_map.get("src") or ""
+            if image_url:
+                self._current_item["image"] = urljoin(self.page_url, image_url.strip())
+        elif tag == "br" and self._capture_field in {"section", "title"}:
+            self._capture_buffer.append("\n")
+
+    def handle_endtag(self, tag: str):
+        if self._capture_field and tag == self._capture_end_tag:
+            value = self._normalize_text("".join(self._capture_buffer), keep_newlines=True)
+            if self._capture_field == "section":
+                self.current_section = value or self.current_section
+            elif self._current_item is not None:
+                self._current_item[self._capture_field] = value
+            self._capture_field = ""
+            self._capture_end_tag = ""
+            self._capture_buffer = []
+
+        if self._current_item is not None and tag == "div":
+            self._item_div_depth -= 1
+            if self._item_div_depth <= 0:
+                self._finalize_item()
+
+    def handle_data(self, data: str):
+        if self._capture_field:
+            self._capture_buffer.append(data)
+
+    def _start_capture(self, field: str, end_tag: str):
+        self._capture_field = field
+        self._capture_end_tag = end_tag
+        self._capture_buffer = []
+
+    def _set_page_updated(self, value: str):
+        if not value or self.page_updated is not None:
+            return
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except Exception:
+            return
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=BEIJING_TIMEZONE)
+        self.page_updated = dt.astimezone(BEIJING_TIMEZONE)
+
+    def _finalize_item(self):
+        item = self._current_item or {}
+        title = self._normalize_title(item.get("title", ""))
+        if title:
+            item["title"] = title
+            item["section"] = self._normalize_text(item.get("section", "")) or self.current_section
+            item["type"] = self._normalize_text(item.get("type", ""))
+            item["schedule"] = self._normalize_text(item.get("schedule", ""))
+            self.items.append(item)
+        self._current_item = None
+        self._item_div_depth = 0
+
+    def _normalize_title(self, value: str) -> str:
+        text = self._normalize_text(value, keep_newlines=True)
+        text = re.sub(r"\s*[\r\n]+\s*", " ", text)
+        return text.strip()
+
+    def _normalize_text(self, value: str, keep_newlines: bool = False) -> str:
+        text = html.unescape(value or "").replace("\xa0", " ")
+        if keep_newlines:
+            text = re.sub(r"[ \t\f\v]+", " ", text)
+            text = re.sub(r"\n{2,}", "\n", text)
+        else:
+            text = re.sub(r"\s+", " ", text)
+        return text.strip()
