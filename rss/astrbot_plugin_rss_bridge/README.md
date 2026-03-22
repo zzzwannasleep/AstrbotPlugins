@@ -10,6 +10,8 @@
 - 可切换/自定义推送模板
 - 支持多种图片模板预览
 - 可选用 AstrBot 文转图生成图片推送
+- 支持按群自定义模板风格
+- 支持预览某个已订阅 RSS 的真实内容样式
 - 自动轮询并推送更新
 - 兼容 AstrBot 在仅传入 `context` 时的插件初始化方式
 - 兼容 AstrBot 在 `get_astrbot_data_path()` 返回字符串时的路径处理方式
@@ -22,7 +24,15 @@
 /rss rename <旧名称> <新名称>
 /rss list
 /rss check [名称]
+/rss style
+/rss style text <风格>
+/rss style image <风格>
+/rss style render <text|image>
+/rss style preview <text|image>
+/rss style reset
 /rss preview [风格] [text|image]
+/rss preview <订阅名称> [text|image]
+/rss preview feed <订阅名称> [text|image]
 /rss preview all image
 /rss help
 ```
@@ -53,6 +63,7 @@
 ## 说明
 
 - 插件会把每个群的订阅独立存储。
+- 每个群都可以单独覆盖文本模板、图片模板、推送模式和预览模式。
 - 新增订阅时会把当前 feed 内容记录为基线，不会立即补发历史消息。
 - 默认只有群管理员可以管理订阅，普通成员默认可查看列表和帮助。
 - 图片模式依赖 AstrBot 自带文转图能力；若失败会自动回退为文本推送。
@@ -88,9 +99,34 @@
 
 ```text
 /rss preview
+/rss preview "少数派"
 /rss preview glass image
 /rss preview all image
 ```
+
+## 按群自定义模板
+
+你可以在不同群里设置不同风格：
+
+```text
+/rss style
+/rss style text pretty
+/rss style image glass
+/rss style render image
+/rss style preview image
+```
+
+恢复为全局默认：
+
+```text
+/rss style reset
+```
+
+> 如果订阅名称刚好和风格名冲突，例如叫 `pretty`，可以使用：
+>
+> ```text
+> /rss preview feed "pretty" image
+> ```
 
 ## 安装
 

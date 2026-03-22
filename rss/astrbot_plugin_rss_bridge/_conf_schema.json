@@ -43,25 +43,25 @@
   "template_style": {
     "type": "string",
     "description": "推送模板风格",
-    "hint": "可填 classic / pretty / compact / custom，默认 pretty。",
+    "hint": "全局默认文本风格，可填 classic / pretty / compact / custom。也可在群里用 /rss style text 单独覆盖。",
     "default": "pretty"
   },
   "message_render_mode": {
     "type": "string",
     "description": "实际推送模式",
-    "hint": "可填 text / image。image 模式会优先用 AstrBot 文转图生成为图片推送，失败时自动回退文本。",
+    "hint": "全局默认推送模式，可填 text / image。也可在群里用 /rss style render 单独覆盖。",
     "default": "text"
   },
   "preview_render_mode": {
     "type": "string",
     "description": "预览命令默认模式",
-    "hint": "可填 text / image，默认跟随实际推送模式。",
+    "hint": "全局默认预览模式，可填 text / image。也可在群里用 /rss style preview 单独覆盖。",
     "default": "image"
   },
   "image_template_style": {
     "type": "string",
     "description": "图片模板风格",
-    "hint": "可填 aurora / newspaper / glass / minimal。",
+    "hint": "全局默认图片风格，可填 aurora / newspaper / glass / minimal。也可在群里用 /rss style image 单独覆盖。",
     "default": "aurora"
   },
   "custom_message_template": {

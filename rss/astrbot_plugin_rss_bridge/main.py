@@ -199,6 +199,12 @@ IMAGE_TEMPLATE_PRESETS = {
 </html>
 """,
 }
+GROUP_PREFERENCE_DEFAULTS = {
+    "template_style": "",
+    "message_render_mode": "",
+    "image_template_style": "",
+    "preview_render_mode": "",
+}
 
 
 class RSSBridgePlugin(Star):
@@ -293,8 +299,13 @@ class RSSBridgePlugin(Star):
                 yield preview_result
             return
 
+        if action == "style":
+            message = await self._handle_style_command(event, tokens[1:])
+            yield event.plain_result(message)
+            return
+
         yield event.plain_result(
-            "未知子命令。可用命令：add、del、rename、list、check、preview、help"
+            "未知子命令。可用命令：add、del、rename、list、check、style、preview、help"
         )
 
     async def terminate(self):
@@ -496,6 +507,87 @@ class RSSBridgePlugin(Star):
                 f"失败项：{'；'.join(errors)}"
             )
         return f"手动检查完成：共检查 {checked} 个订阅，成功推送 {pushed} 条新内容。"
+
+    async def _handle_style_command(
+        self, event: AstrMessageEvent, args: list[str]
+    ) -> str:
+        umo = event.unified_msg_origin
+        if not args:
+            return await self._handle_show_group_style(umo)
+
+        subcommand = args[0].lower()
+        if subcommand == "reset":
+            await self._update_group_preferences(
+                umo,
+                template_style="",
+                message_render_mode="",
+                image_template_style="",
+                preview_render_mode="",
+            )
+            return "已清空本群模板偏好，后续将回退到全局插件配置。"
+
+        if len(args) < 2:
+            return (
+                "用法：\n"
+                "/rss style                      查看本群模板配置\n"
+                "/rss style text <classic|pretty|compact|custom>\n"
+                "/rss style image <aurora|newspaper|glass|minimal>\n"
+                "/rss style render <text|image>\n"
+                "/rss style preview <text|image>\n"
+                "/rss style reset"
+            )
+
+        value = args[1].lower()
+        if subcommand == "text":
+            if value not in {"classic", "pretty", "compact", "custom"}:
+                return "文本模板仅支持：classic / pretty / compact / custom"
+            await self._update_group_preferences(umo, template_style=value)
+            return f"已将本群文本模板风格设置为：{value}"
+
+        if subcommand == "image":
+            if value not in IMAGE_TEMPLATE_PRESETS:
+                return "图片模板仅支持：aurora / newspaper / glass / minimal"
+            await self._update_group_preferences(umo, image_template_style=value)
+            return f"已将本群图片模板风格设置为：{value}"
+
+        if subcommand == "render":
+            if value not in {"text", "image"}:
+                return "推送模式仅支持：text / image"
+            await self._update_group_preferences(umo, message_render_mode=value)
+            return f"已将本群实际推送模式设置为：{value}"
+
+        if subcommand == "preview":
+            if value not in {"text", "image"}:
+                return "预览模式仅支持：text / image"
+            await self._update_group_preferences(umo, preview_render_mode=value)
+            return f"已将本群模板预览模式设置为：{value}"
+
+        return "未知 style 子命令，可用：text / image / render / preview / reset"
+
+    async def _handle_show_group_style(self, umo: str) -> str:
+        await self._ensure_state_loaded()
+        preferences = self._get_group_preferences(umo)
+        return (
+            "本群模板配置：\n"
+            f"- 文本模板：{self._template_style(umo=umo)}"
+            + ("（群自定义）" if preferences.get("template_style") else "（全局默认）")
+            + "\n"
+            f"- 图片模板：{self._image_template_style(umo=umo)}"
+            + ("（群自定义）" if preferences.get("image_template_style") else "（全局默认）")
+            + "\n"
+            f"- 实际推送模式：{self._message_render_mode(umo)}"
+            + ("（群自定义）" if preferences.get("message_render_mode") else "（全局默认）")
+            + "\n"
+            f"- 预览模式：{self._preview_mode(umo)}"
+            + ("（群自定义）" if preferences.get("preview_render_mode") else "（全局默认）")
+            + "\n\n"
+            "可用命令：\n"
+            "/rss style text <classic|pretty|compact|custom>\n"
+            "/rss style image <aurora|newspaper|glass|minimal>\n"
+            "/rss style render <text|image>\n"
+            "/rss style preview <text|image>\n"
+            "/rss style reset"
+        )
 
     async def _refresh_subscription(
         self, umo: str, alias: str, manual: bool
@@ -743,11 +835,12 @@ class RSSBridgePlugin(Star):
         feed_title: str,
         entry: dict[str, str],
         style: str | None = None,
+        umo: str | None = None,
     ) -> str:
         context = self._build_message_template_context(alias, feed_title, entry)
-        template = self._entry_template(style)
+        template = self._entry_template(style, umo)
         fallback = MESSAGE_TEMPLATE_PRESETS.get(
-            self._template_style(style), MESSAGE_TEMPLATE_PRESETS["pretty"]
+            self._template_style(style, umo), MESSAGE_TEMPLATE_PRESETS["pretty"]
         )
         return self._render_template(template, context, fallback)
 
@@ -758,6 +851,7 @@ class RSSBridgePlugin(Star):
         sent_count: int,
         skipped_count: int,
         style: str | None = None,
+        umo: str | None = None,
     ) -> str:
         context = {
             "alias": alias,
@@ -765,18 +859,21 @@ class RSSBridgePlugin(Star):
             "sent_count": str(sent_count),
             "skipped_count": str(skipped_count),
         }
-        template = self._overflow_template(style)
+        template = self._overflow_template(style, umo)
         fallback = OVERFLOW_TEMPLATE_PRESETS.get(
-            self._template_style(style), OVERFLOW_TEMPLATE_PRESETS["pretty"]
+            self._template_style(style, umo), OVERFLOW_TEMPLATE_PRESETS["pretty"]
         )
         return self._render_template(template, context, fallback)
 
     async def _handle_preview_template(
         self, event: AstrMessageEvent, args: list[str]
     ):
-        mode = self._preview_mode()
+        umo = event.unified_msg_origin
+        mode = self._preview_mode(umo)
         style = ""
         show_all = False
+        use_feed_preview = False
+        alias_parts: list[str] = []
 
         for arg in args:
             normalized = arg.strip().lower()
@@ -784,10 +881,20 @@ class RSSBridgePlugin(Star):
                 mode = normalized
             elif normalized in {"all", "styles"}:
                 show_all = True
+            elif normalized in {"feed", "source"}:
+                use_feed_preview = True
             elif normalized in self._all_template_styles():
                 style = normalized
+            else:
+                alias_parts.append(arg)
 
-        sample_entry = {
+        alias = " ".join(alias_parts).strip()
+        if alias:
+            use_feed_preview = True
+
+        preview_alias = "演示订阅"
+        preview_feed_title = "AstrBot 官方博客"
+        preview_entry = {
             "title": "AstrBot RSS 模板预览示例",
             "published": "2026-03-22 12:00:00 +0800",
             "summary": (
@@ -796,22 +903,38 @@ class RSSBridgePlugin(Star):
             ),
             "link": "https://example.com/rss-preview",
         }
+
+        if use_feed_preview:
+            if not alias:
+                yield event.plain_result("用法：/rss preview <订阅名称> [text|image]\n例如：/rss preview 少数派 image")
+                return
+            real_preview = await self._build_feed_preview_entry(umo, alias)
+            if real_preview.get("error"):
+                yield event.plain_result(f"预览失败：{real_preview['error']}")
+                return
+            preview_alias = real_preview["alias"]
+            preview_feed_title = real_preview["feed_title"]
+            preview_entry = real_preview["entry"]
+
         if mode == "image":
-            styles = self._image_preview_styles(style, show_all)
+            styles = self._image_preview_styles(style, show_all, umo)
             yield event.plain_result(
-                "开始预览图片模板："
+                ("开始预览真实 RSS 内容图片模板：" if use_feed_preview else "开始预览图片模板：")
                 + "、".join(styles)
                 + "\n如需查看全部图片风格，可用：/rss preview all image"
             )
             for style_name in styles:
                 try:
                     image_path = await self._render_entry_image(
-                        alias="演示订阅",
-                        feed_title="AstrBot 官方博客",
-                        entry=sample_entry,
+                        alias=preview_alias,
+                        feed_title=preview_feed_title,
+                        entry=preview_entry,
                         style=style_name,
                     )
-                    yield event.plain_result(f"图片模板：{style_name}")
+                    yield event.plain_result(
+                        f"图片模板：{style_name}"
+                        + (f"\n预览来源：{preview_alias}" if use_feed_preview else "")
+                    )
                     yield event.image_result(str(image_path))
                 except Exception as exc:
                     logger.warning("[%s] 图片模板预览失败: %s", PLUGIN_NAME, exc)
@@ -821,24 +944,28 @@ class RSSBridgePlugin(Star):
                     )
             return
 
-        styles = self._text_preview_styles(style, show_all)
+        styles = self._text_preview_styles(style, show_all, umo)
         preview_blocks: list[str] = []
         for style_name in styles:
             preview_blocks.append(
-                f"=== 文本模板：{style_name} ===\n"
+                f"=== 文本模板：{style_name} ==="
+                + (f"\n预览来源：{preview_alias}" if use_feed_preview else "")
+                + "\n"
                 + self._format_entry_message(
-                    "演示订阅",
-                    "AstrBot 官方博客",
-                    sample_entry,
+                    preview_alias,
+                    preview_feed_title,
+                    preview_entry,
                     style=style_name,
+                    umo=umo,
                 )
                 + "\n\n"
                 + self._format_overflow_message(
-                    alias="演示订阅",
+                    alias=preview_alias,
                     new_count=8,
                     sent_count=3,
                     skipped_count=5,
                     style=style_name,
+                    umo=umo,
                 )
             )
         yield event.plain_result("\n\n".join(preview_blocks))
@@ -846,10 +973,10 @@ class RSSBridgePlugin(Star):
     async def _send_entry_update(
         self, umo: str, alias: str, feed_title: str, entry: dict[str, str]
     ):
-        render_mode = self._message_render_mode()
+        render_mode = self._message_render_mode(umo)
         if render_mode == "image":
             try:
-                image_path = await self._render_entry_image(alias, feed_title, entry)
+                image_path = await self._render_entry_image(alias, feed_title, entry, umo=umo)
                 chain = MessageChain().file_image(str(image_path))
                 if entry.get("link"):
                     chain.message(f"\n链接：{entry['link']}")
@@ -858,13 +985,13 @@ class RSSBridgePlugin(Star):
             except Exception as exc:
                 logger.warning("[%s] 图片推送失败，已回退文本: %s", PLUGIN_NAME, exc)
 
-        message = self._format_entry_message(alias, feed_title, entry)
+        message = self._format_entry_message(alias, feed_title, entry, umo=umo)
         await self.context.send_message(umo, MessageChain().message(message))
 
     async def _send_overflow_update(
         self, umo: str, alias: str, new_count: int, sent_count: int, skipped_count: int
     ):
-        render_mode = self._message_render_mode()
+        render_mode = self._message_render_mode(umo)
         if render_mode == "image":
             try:
                 image_path = await self._render_overflow_image(
@@ -872,6 +999,7 @@ class RSSBridgePlugin(Star):
                     new_count=new_count,
                     sent_count=sent_count,
                     skipped_count=skipped_count,
+                    umo=umo,
                 )
                 await self.context.send_message(umo, MessageChain().file_image(str(image_path)))
                 return
@@ -886,6 +1014,7 @@ class RSSBridgePlugin(Star):
                     new_count=new_count,
                     sent_count=sent_count,
                     skipped_count=skipped_count,
+                    umo=umo,
                 )
             ),
         )
@@ -896,8 +1025,9 @@ class RSSBridgePlugin(Star):
         feed_title: str,
         entry: dict[str, str],
         style: str | None = None,
+        umo: str | None = None,
     ) -> str:
-        template = self._image_template(style)
+        template = self._image_template(style, umo)
         data = self._build_message_template_context(alias, feed_title, entry)
         return await self.html_render(
             template,
@@ -912,8 +1042,9 @@ class RSSBridgePlugin(Star):
         sent_count: int,
         skipped_count: int,
         style: str | None = None,
+        umo: str | None = None,
     ) -> str:
-        template = self._image_template(style)
+        template = self._image_template(style, umo)
         data = {
             "alias": alias,
             "feed_title": "RSS 批量更新汇总",
@@ -929,6 +1060,28 @@ class RSSBridgePlugin(Star):
             data,
             return_url=False,
         )
+
+    async def _build_feed_preview_entry(self, umo: str, alias: str) -> dict[str, Any]:
+        await self._ensure_state_loaded()
+        async with self._state_lock:
+            subscription = self._get_subscription_copy(umo, alias)
+            if not subscription:
+                return {"error": f"本群没有找到名为 “{alias}” 的 RSS 订阅。"}
+
+        try:
+            result = await self._fetch_feed(subscription["url"])
+        except Exception as exc:
+            return {"error": f"读取 RSS 失败：{exc}"}
+
+        entries = result.get("entries") or []
+        if not entries:
+            return {"error": "该 RSS 源当前没有可用于预览的内容。"}
+
+        return {
+            "alias": alias,
+            "feed_title": result.get("feed_title") or subscription.get("feed_title") or alias,
+            "entry": entries[0],
+        }
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session and not self._session.closed:
@@ -1000,7 +1153,16 @@ class RSSBridgePlugin(Star):
                     "last_error": str(item.get("last_error") or ""),
                 }
 
-            normalized_groups[umo] = {"feeds": normalized_feeds}
+            raw_preferences = group_data.get("preferences", {})
+            preferences = dict(GROUP_PREFERENCE_DEFAULTS)
+            if isinstance(raw_preferences, dict):
+                for key in preferences.keys():
+                    preferences[key] = str(raw_preferences.get(key) or "")
+
+            normalized_groups[umo] = {
+                "feeds": normalized_feeds,
+                "preferences": preferences,
+            }
 
         state["groups"] = normalized_groups
         return state
@@ -1016,10 +1178,41 @@ class RSSBridgePlugin(Star):
 
     def _get_or_create_group_state(self, umo: str) -> dict[str, Any]:
         groups = self._state.setdefault("groups", {})
-        return groups.setdefault(umo, {"feeds": {}})
+        group_state = groups.setdefault(
+            umo,
+            {"feeds": {}, "preferences": dict(GROUP_PREFERENCE_DEFAULTS)},
+        )
+        group_state.setdefault("feeds", {})
+        group_state.setdefault("preferences", dict(GROUP_PREFERENCE_DEFAULTS))
+        for key, value in GROUP_PREFERENCE_DEFAULTS.items():
+            group_state["preferences"].setdefault(key, value)
+        return group_state
 
     def _get_group_state(self, umo: str) -> dict[str, Any] | None:
         return (self._state or {}).get("groups", {}).get(umo)
+
+    def _get_group_preferences(self, umo: str | None) -> dict[str, str]:
+        if not umo:
+            return dict(GROUP_PREFERENCE_DEFAULTS)
+        group_data = self._get_group_state(umo)
+        if not group_data:
+            return dict(GROUP_PREFERENCE_DEFAULTS)
+        preferences = group_data.get("preferences", {})
+        merged = dict(GROUP_PREFERENCE_DEFAULTS)
+        if isinstance(preferences, dict):
+            for key in merged.keys():
+                merged[key] = str(preferences.get(key) or "")
+        return merged
+
+    async def _update_group_preferences(self, umo: str, **kwargs):
+        await self._ensure_state_loaded()
+        async with self._state_lock:
+            group_data = self._get_or_create_group_state(umo)
+            preferences = group_data.setdefault("preferences", dict(GROUP_PREFERENCE_DEFAULTS))
+            for key, value in kwargs.items():
+                if key in GROUP_PREFERENCE_DEFAULTS:
+                    preferences[key] = str(value or "")
+            await self._save_state_locked()
 
     def _get_subscription_copy(self, umo: str, alias: str) -> dict[str, Any] | None:
         group_data = self._get_group_state(umo)
@@ -1103,11 +1296,17 @@ class RSSBridgePlugin(Star):
             "/rss rename <旧名称> <新名称>  重命名订阅\n"
             "/rss list                  查看本群订阅\n"
             "/rss check [名称]          立即检查更新\n"
+            "/rss style                 查看/设置本群模板风格\n"
+            "/rss preview <订阅名称> [text|image]  预览真实 RSS 内容\n"
             "/rss preview [风格] [text|image]  预览模板\n"
             "/rss preview all image     预览全部图片风格\n"
             "/rss help                  查看帮助\n\n"
             "文本风格：classic / pretty / compact\n"
             "图片风格：aurora / newspaper / glass / minimal\n\n"
+            "如果要按群设置模板，可用：\n"
+            "/rss style text pretty\n"
+            "/rss style image glass\n"
+            "/rss style render image\n\n"
             "如果名称里有空格，请使用引号，例如：\n"
             '/rss add "少数派" https://sspai.com/feed'
         )
@@ -1176,8 +1375,8 @@ class RSSBridgePlugin(Star):
         ).strip()
         return value or "只有群管理员才可以管理本群的 RSS 订阅。"
 
-    def _entry_template(self, style: str | None = None) -> str:
-        style = self._template_style(style)
+    def _entry_template(self, style: str | None = None, umo: str | None = None) -> str:
+        style = self._template_style(style, umo)
         if style == "custom":
             custom_template = str(self.config.get("custom_message_template", "") or "").strip()
             if custom_template:
@@ -1185,8 +1384,8 @@ class RSSBridgePlugin(Star):
             style = "pretty"
         return MESSAGE_TEMPLATE_PRESETS.get(style, MESSAGE_TEMPLATE_PRESETS["pretty"])
 
-    def _overflow_template(self, style: str | None = None) -> str:
-        style = self._template_style(style)
+    def _overflow_template(self, style: str | None = None, umo: str | None = None) -> str:
+        style = self._template_style(style, umo)
         if style == "custom":
             custom_template = str(self.config.get("custom_overflow_template", "") or "").strip()
             if custom_template:
@@ -1194,32 +1393,38 @@ class RSSBridgePlugin(Star):
             style = "pretty"
         return OVERFLOW_TEMPLATE_PRESETS.get(style, OVERFLOW_TEMPLATE_PRESETS["pretty"])
 
-    def _template_style(self, style: str | None = None) -> str:
-        value = str(style or self.config.get("template_style", "pretty") or "").strip().lower()
+    def _template_style(self, style: str | None = None, umo: str | None = None) -> str:
+        group_style = self._get_group_preferences(umo).get("template_style", "")
+        value = str(style or group_style or self.config.get("template_style", "pretty") or "").strip().lower()
         if value in {"classic", "pretty", "compact", "custom"}:
             return value
         return "pretty"
 
-    def _image_template(self, style: str | None = None) -> str:
+    def _image_template(self, style: str | None = None, umo: str | None = None) -> str:
         return IMAGE_TEMPLATE_PRESETS.get(
-            self._image_template_style(style), IMAGE_TEMPLATE_PRESETS["aurora"]
+            self._image_template_style(style, umo), IMAGE_TEMPLATE_PRESETS["aurora"]
         )
 
-    def _image_template_style(self, style: str | None = None) -> str:
-        value = str(style or self.config.get("image_template_style", "aurora") or "").strip().lower()
+    def _image_template_style(self, style: str | None = None, umo: str | None = None) -> str:
+        group_style = self._get_group_preferences(umo).get("image_template_style", "")
+        value = str(style or group_style or self.config.get("image_template_style", "aurora") or "").strip().lower()
         if value in IMAGE_TEMPLATE_PRESETS:
             return value
         return "aurora"
 
-    def _message_render_mode(self) -> str:
-        value = str(self.config.get("message_render_mode", "text") or "").strip().lower()
+    def _message_render_mode(self, umo: str | None = None) -> str:
+        group_mode = self._get_group_preferences(umo).get("message_render_mode", "")
+        value = str(group_mode or self.config.get("message_render_mode", "text") or "").strip().lower()
         if value in {"text", "image"}:
             return value
         return "text"
 
-    def _preview_mode(self) -> str:
+    def _preview_mode(self, umo: str | None = None) -> str:
+        group_mode = self._get_group_preferences(umo).get("preview_render_mode", "")
         value = str(
-            self.config.get("preview_render_mode", self._message_render_mode()) or ""
+            group_mode
+            or self.config.get("preview_render_mode", self._message_render_mode(umo))
+            or ""
         ).strip().lower()
         if value in {"text", "image"}:
             return value
@@ -1228,19 +1433,19 @@ class RSSBridgePlugin(Star):
     def _all_template_styles(self) -> set[str]:
         return set(MESSAGE_TEMPLATE_PRESETS) | set(IMAGE_TEMPLATE_PRESETS) | {"custom"}
 
-    def _text_preview_styles(self, style: str, show_all: bool) -> list[str]:
+    def _text_preview_styles(self, style: str, show_all: bool, umo: str | None = None) -> list[str]:
         if style and style in MESSAGE_TEMPLATE_PRESETS:
             return [style]
         if show_all:
             return list(MESSAGE_TEMPLATE_PRESETS.keys())
-        return [self._template_style()]
+        return [self._template_style(umo=umo)]
 
-    def _image_preview_styles(self, style: str, show_all: bool) -> list[str]:
+    def _image_preview_styles(self, style: str, show_all: bool, umo: str | None = None) -> list[str]:
         if style and style in IMAGE_TEMPLATE_PRESETS:
             return [style]
         if show_all:
             return list(IMAGE_TEMPLATE_PRESETS.keys())
-        return [self._image_template_style()]
+        return [self._image_template_style(umo=umo)]
 
     def _build_message_template_context(
         self, alias: str, feed_title: str, entry: dict[str, str]
