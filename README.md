@@ -16,9 +16,9 @@
 
 ### RSS 类
 
-| 插件名 | 路径 | 简介 | 平台 |
-|---|---|---|---|
-| RSS 群组订阅桥接 | `rss/astrbot_plugin_rss_bridge` | 为 OneBot V11 和 Telegram 群组提供按群隔离的 RSS 订阅与自动推送能力。 | OneBot V11 / Telegram |
+| 插件名 | 简介 | 平台 | 源码 | 下载 |
+|---|---|---|---|---|
+| RSS 群组订阅桥接 | 为 OneBot V11 和 Telegram 群组提供按群隔离的 RSS 订阅与自动推送能力。 | OneBot V11 / Telegram | [目录](https://github.com/zzzwannasleep/AstrbotPlugins/tree/main/rss/astrbot_plugin_rss_bridge) | [ZIP](https://github.com/zzzwannasleep/AstrbotPlugins/releases/download/plugins-latest/astrbot_plugin_rss_bridge.zip) |
 
 ## 安装方式
 
@@ -36,12 +36,16 @@ AstrBot/data/plugins/<插件目录名>
 AstrBot/data/plugins/astrbot_plugin_rss_bridge
 ```
 
-## 索引维护
+## 自动化
 
-当你新增或修改插件后，运行以下命令即可自动刷新仓库索引：
+仓库已支持 GitHub Actions：
+
+- 自动刷新 `README.md` 和 `PLUGINS.md`
+- 自动打包每个插件为 `<插件目录名>.zip`
+- 自动发布到 GitHub Releases 的 `plugins-latest` 标签下
+
+如果你在本地预览，也可以手动运行：
 
 ```powershell
 .\scripts\generate-plugin-index.ps1
 ```
-
-建议在提交前执行一次，确保 `README.md` 和 `PLUGINS.md` 与仓库内容保持一致。

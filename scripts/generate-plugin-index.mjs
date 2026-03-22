@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const currentFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(currentFile), "..");
 const backtick = "`";
 const fence = "```";
+const defaultReleaseTag = process.env.PLUGIN_RELEASE_TAG || "plugins-latest";
 
 function toPosix(p) {
   return p.split(path.sep).join("/");
@@ -118,9 +120,38 @@ function walkForMetadata(dirPath, found = []) {
   return found;
 }
 
+function getRepoSlug() {
+  if (process.env.GITHUB_REPOSITORY) {
+    return process.env.GITHUB_REPOSITORY.trim();
+  }
+
+  try {
+    const remoteUrl = execSync("git remote get-url origin", {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const normalized = remoteUrl
+      .replace(/^git@github\.com:/, "https://github.com/")
+      .replace(/\.git$/, "");
+    const match = normalized.match(/github\.com\/([^/]+\/[^/]+)$/i);
+    if (match) return match[1];
+  } catch {}
+
+  for (const metadataPath of walkForMetadata(repoRoot)) {
+    const metadata = parseSimpleYaml(metadataPath);
+    const repo = String(metadata.repo || "").trim().replace(/\.git$/, "");
+    const match = repo.match(/github\.com\/([^/]+\/[^/]+)$/i);
+    if (match) return match[1];
+  }
+
+  return "";
+}
+
 function getPlugins() {
   const metadataFiles = walkForMetadata(repoRoot);
   const plugins = [];
+  const repoSlug = getRepoSlug();
 
   for (const metadataPath of metadataFiles) {
     const pluginDir = path.dirname(metadataPath);
@@ -152,6 +183,10 @@ function getPlugins() {
       platformList,
       readmePath: `${relativePath}/README.md`,
       installDirectory: dirName,
+      sourceUrl: repoSlug ? `https://github.com/${repoSlug}/tree/main/${relativePath}` : "",
+      downloadUrl: repoSlug
+        ? `https://github.com/${repoSlug}/releases/download/${defaultReleaseTag}/${dirName}.zip`
+        : "",
     });
   }
 
@@ -206,10 +241,12 @@ function buildReadme(plugins) {
   for (const group of groups) {
     lines.push(`### ${group.categoryName} 类`);
     lines.push("");
-    lines.push("| 插件名 | 路径 | 简介 | 平台 |");
-    lines.push("|---|---|---|---|");
+    lines.push("| 插件名 | 简介 | 平台 | 源码 | 下载 |");
+    lines.push("|---|---|---|---|---|");
     for (const plugin of group.items) {
-      lines.push(`| ${plugin.name} | ${backtick}${plugin.relativePath}${backtick} | ${plugin.desc} | ${plugin.platforms} |`);
+      const sourceCell = plugin.sourceUrl ? `[目录](${plugin.sourceUrl})` : `${backtick}${plugin.relativePath}${backtick}`;
+      const downloadCell = plugin.downloadUrl ? `[ZIP](${plugin.downloadUrl})` : "待生成";
+      lines.push(`| ${plugin.name} | ${plugin.desc} | ${plugin.platforms} | ${sourceCell} | ${downloadCell} |`);
     }
     lines.push("");
   }
@@ -233,15 +270,19 @@ function buildReadme(plugins) {
     lines.push("");
   }
 
-  lines.push("## 索引维护");
+  lines.push("## 自动化");
   lines.push("");
-  lines.push("当你新增或修改插件后，运行以下命令即可自动刷新仓库索引：");
+  lines.push("仓库已支持 GitHub Actions：");
+  lines.push("");
+  lines.push("- 自动刷新 `README.md` 和 `PLUGINS.md`");
+  lines.push(`- 自动打包每个插件为 ${backtick}<插件目录名>.zip${backtick}`);
+  lines.push(`- 自动发布到 GitHub Releases 的 ${backtick}${defaultReleaseTag}${backtick} 标签下`);
+  lines.push("");
+  lines.push("如果你在本地预览，也可以手动运行：");
   lines.push("");
   lines.push(`${fence}powershell`);
   lines.push(".\\scripts\\generate-plugin-index.ps1");
   lines.push(fence);
-  lines.push("");
-  lines.push(`建议在提交前执行一次，确保 ${backtick}README.md${backtick} 和 ${backtick}PLUGINS.md${backtick} 与仓库内容保持一致。`);
 
   return `${lines.join("\n")}\n`;
 }
@@ -258,10 +299,12 @@ function buildPluginsPage(plugins) {
   lines.push("");
   lines.push("## 索引总表");
   lines.push("");
-  lines.push("| 分类 | 插件名 | 目录 | 状态 | 简介 | 文档 |");
-  lines.push("|---|---|---|---|---|---|");
+  lines.push("| 分类 | 插件名 | 目录 | 状态 | 简介 | 文档 | 源码 | 下载 |");
+  lines.push("|---|---|---|---|---|---|---|---|");
   for (const plugin of plugins) {
-    lines.push(`| ${plugin.categoryName} | ${plugin.name} | ${backtick}${plugin.relativePath}${backtick} | 可用 | ${plugin.desc} | [README](./${plugin.readmePath}) |`);
+    const sourceCell = plugin.sourceUrl ? `[目录](${plugin.sourceUrl})` : `${backtick}${plugin.relativePath}${backtick}`;
+    const downloadCell = plugin.downloadUrl ? `[ZIP](${plugin.downloadUrl})` : "待生成";
+    lines.push(`| ${plugin.categoryName} | ${plugin.name} | ${backtick}${plugin.relativePath}${backtick} | 可用 | ${plugin.desc} | [README](./${plugin.readmePath}) | ${sourceCell} | ${downloadCell} |`);
   }
   lines.push("");
   lines.push("## 分类索引");
@@ -286,18 +329,22 @@ function buildPluginsPage(plugins) {
         lines.push("  - 未声明");
       }
       lines.push(`- 文档：[README](./${plugin.readmePath})`);
+      if (plugin.sourceUrl) lines.push(`- 源码目录：[打开](${plugin.sourceUrl})`);
+      if (plugin.downloadUrl) lines.push(`- 下载链接：[${plugin.installDirectory}.zip](${plugin.downloadUrl})`);
       lines.push(`- 安装目录：${backtick}AstrBot/data/plugins/${plugin.installDirectory}${backtick}`);
       lines.push("");
     });
   }
 
-  lines.push("## 索引维护规则");
+  lines.push("## 自动化说明");
   lines.push("");
-  lines.push("后续新增插件时，建议同步检查以下内容：");
+  lines.push("仓库中的 GitHub Actions 会在推送到 `main` 或手动触发时自动：");
   lines.push("");
-  lines.push(`1. 插件目录中是否包含 ${backtick}main.py${backtick}、${backtick}metadata.yaml${backtick}、${backtick}README.md${backtick} 等必要文件`);
-  lines.push(`2. 运行 ${backtick}.\\scripts\\generate-plugin-index.ps1${backtick} 刷新索引`);
-  lines.push(`3. 提交生成后的 ${backtick}README.md${backtick} 与 ${backtick}PLUGINS.md${backtick}`);
+  lines.push(`1. 运行 ${backtick}scripts/generate-plugin-index.mjs${backtick} 刷新索引`);
+  lines.push(`2. 打包所有插件 ZIP`);
+  lines.push(`3. 发布/覆盖 ${backtick}${defaultReleaseTag}${backtick} 下的下载包`);
+  lines.push("");
+  lines.push("本地手动执行仅用于预览。");
 
   return `${lines.join("\n")}\n`;
 }
