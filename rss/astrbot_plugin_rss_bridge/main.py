@@ -62,9 +62,15 @@ OVERFLOW_TEMPLATE_PRESETS = {
 
 
 class RSSBridgePlugin(Star):
-    def __init__(self, context: Context, config: AstrBotConfig):
+    def __init__(
+        self,
+        context: Context,
+        config: AstrBotConfig | dict[str, Any] | None = None,
+        *_args,
+        **_kwargs,
+    ):
         super().__init__(context)
-        self.config = config
+        self.config = config or {}
         self._state_lock = asyncio.Lock()
         self._refresh_lock = asyncio.Lock()
         self._poll_task: asyncio.Task | None = None
