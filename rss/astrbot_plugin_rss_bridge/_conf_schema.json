@@ -17,6 +17,12 @@
     "hint": "超过长度的摘要会自动截断。",
     "default": 180
   },
+  "image_summary_max_length": {
+    "type": "int",
+    "description": "图片模式摘要最大长度",
+    "hint": "0 表示图片模式不截断摘要，可输出长图；大于 0 时按该长度截断。",
+    "default": 0
+  },
   "max_entries_per_push": {
     "type": "int",
     "description": "每次检查最多推送的新增条目数",

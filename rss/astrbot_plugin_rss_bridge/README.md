@@ -48,6 +48,7 @@
 - `poll_interval_seconds`：轮询间隔，默认 300 秒
 - `request_timeout_seconds`：请求超时，默认 15 秒
 - `summary_max_length`：摘要最大长度，默认 180
+- `image_summary_max_length`：图片模式摘要最大长度，默认 0（不截断，可输出长图）
 - `max_entries_per_push`：每次最多推送的新增条目数，默认 3
 - `admin_only_commands`：是否仅允许群管理员执行管理命令，默认开启
 - `admin_only_list`：是否连 `list/help` 也限制为管理员，默认关闭
@@ -72,6 +73,7 @@
 - 图片模式依赖 AstrBot 自带文转图能力；若失败会自动回退为文本推送。
 - 为提升清晰度，插件会使用 PNG + `scale=device` + 更宽画布进行渲染。
 - 文转图会先生成高清原图；当 `image_compression_quality` 小于 100 时，再压缩为高质量 JPEG 发送。
+- 图片模式默认不截断摘要，因此可以输出更长的长图；如果你想限制长度，可把 `image_summary_max_length` 调成非 0。
 - 插件状态文件保存在 `data/plugin_data/astrbot_plugin_rss_bridge/state.json`。
 
 ## 模板变量

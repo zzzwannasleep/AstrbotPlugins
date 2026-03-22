@@ -840,7 +840,12 @@ class RSSBridgePlugin(Star):
         style: str | None = None,
         umo: str | None = None,
     ) -> str:
-        context = self._build_message_template_context(alias, feed_title, entry)
+        context = self._build_message_template_context(
+            alias,
+            feed_title,
+            entry,
+            summary_limit=self._summary_max_length(),
+        )
         template = self._entry_template(style, umo)
         fallback = MESSAGE_TEMPLATE_PRESETS.get(
             self._template_style(style, umo), MESSAGE_TEMPLATE_PRESETS["pretty"]
@@ -1031,7 +1036,12 @@ class RSSBridgePlugin(Star):
         umo: str | None = None,
     ) -> str:
         template = self._image_template(style, umo)
-        data = self._build_message_template_context(alias, feed_title, entry)
+        data = self._build_message_template_context(
+            alias,
+            feed_title,
+            entry,
+            summary_limit=self._image_summary_max_length(),
+        )
         rendered_path = await self.html_render(
             template,
             data,
@@ -1344,6 +1354,10 @@ class RSSBridgePlugin(Star):
         value = int(self.config.get("summary_max_length", 180) or 180)
         return max(50, value)
 
+    def _image_summary_max_length(self) -> int:
+        value = int(self.config.get("image_summary_max_length", 0) or 0)
+        return max(0, value)
+
     def _max_entries_per_push(self) -> int:
         value = int(self.config.get("max_entries_per_push", 3) or 3)
         return max(1, value)
@@ -1515,11 +1529,14 @@ class RSSBridgePlugin(Star):
         return [self._image_template_style(umo=umo)]
 
     def _build_message_template_context(
-        self, alias: str, feed_title: str, entry: dict[str, str]
+        self,
+        alias: str,
+        feed_title: str,
+        entry: dict[str, str],
+        summary_limit: int | None = None,
     ) -> dict[str, str]:
         summary = entry.get("summary", "")
-        summary_limit = self._summary_max_length()
-        if len(summary) > summary_limit:
+        if summary_limit is not None and summary_limit > 0 and len(summary) > summary_limit:
             summary = f"{summary[:summary_limit]}..."
 
         safe_feed_title = feed_title if feed_title and feed_title != alias else ""
