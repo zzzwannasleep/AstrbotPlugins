@@ -74,6 +74,7 @@
 - 为提升清晰度，插件会使用 PNG + `scale=device` + 更宽画布进行渲染。
 - 文转图会先生成高清原图；当 `image_compression_quality` 小于 100 时，再压缩为高质量 JPEG 发送。
 - 图片模式默认不截断摘要，因此可以输出更长的长图；如果你想限制长度，可把 `image_summary_max_length` 调成非 0。
+- 图片模式下会采用“图片 + 外部来源链接”的形式：链接不再放进图片内部，图片底部显示北京时间。
 - 插件状态文件保存在 `data/plugin_data/astrbot_plugin_rss_bridge/state.json`。
 
 ## 模板变量

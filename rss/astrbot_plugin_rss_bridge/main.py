@@ -72,12 +72,9 @@ IMAGE_TEMPLATE_PRESETS = {
     .card { width: 1120px; margin: 0 auto; color: #f8fafc; padding: 44px; box-sizing: border-box; }
     .panel { background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 20px 60px rgba(0,0,0,0.25); border-radius: 28px; padding: 34px; backdrop-filter: blur(14px); }
     .badge { display:inline-block; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 20px; margin-bottom: 18px; }
-    .alias { font-size: 42px; font-weight: 700; line-height: 1.3; margin: 4px 0 8px; }
-    .feed { font-size: 24px; color: #bfdbfe; margin-bottom: 20px; }
     .title { font-size: 32px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; }
     .meta { font-size: 20px; color: #dbeafe; margin-bottom: 18px; }
     .summary { font-size: 24px; line-height: 1.7; color: #e2e8f0; background: rgba(255,255,255,0.08); border-radius: 20px; padding: 20px 22px; }
-    .link { margin-top: 20px; font-size: 18px; color: #93c5fd; word-break: break-all; }
     .footer { margin-top: 22px; font-size: 16px; color: rgba(255,255,255,0.75); }
   </style>
 </head>
@@ -85,13 +82,10 @@ IMAGE_TEMPLATE_PRESETS = {
   <div class="card">
     <div class="panel">
       <div class="badge">📰 RSS 更新</div>
-      <div class="alias">{{ alias }}</div>
-      {% if feed_title %}<div class="feed">源站：{{ feed_title }}</div>{% endif %}
       <div class="title">{{ title }}</div>
       {% if published %}<div class="meta">🕒 {{ published }}</div>{% endif %}
       {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
-      {% if link %}<div class="link">🔗 {{ link }}</div>{% endif %}
-      <div class="footer">AstrBot RSS 群组订阅桥接</div>
+      <div class="footer">{{ render_time }}</div>
     </div>
   </div>
 </body>
@@ -107,25 +101,21 @@ IMAGE_TEMPLATE_PRESETS = {
     .paper { width: 1080px; margin: 0 auto; padding: 40px; box-sizing: border-box; background: linear-gradient(180deg, #fbf7ef 0%, #f3ead8 100%); border-left: 10px solid #7c2d12; border-right: 10px solid #7c2d12; }
     .top { border-bottom: 4px double #7c2d12; padding-bottom: 14px; margin-bottom: 24px; }
     .tag { font-size: 18px; letter-spacing: 4px; color: #7c2d12; text-transform: uppercase; }
-    .alias { font-size: 40px; font-weight: 700; margin-top: 10px; }
-    .feed { font-size: 22px; color: #92400e; margin-top: 8px; }
     .title { font-size: 34px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; }
     .meta { font-size: 19px; color: #6b7280; margin-bottom: 18px; }
     .summary { font-size: 24px; line-height: 1.85; text-align: justify; column-count: 2; column-gap: 28px; }
-    .link { margin-top: 20px; font-size: 18px; color: #7c2d12; word-break: break-all; border-top: 1px dashed #b45309; padding-top: 12px; }
+    .footer { margin-top: 18px; font-size: 16px; color: #92400e; border-top: 1px dashed #b45309; padding-top: 12px; }
   </style>
 </head>
 <body>
   <div class="paper">
     <div class="top">
       <div class="tag">RSS BULLETIN</div>
-      <div class="alias">{{ alias }}</div>
-      {% if feed_title %}<div class="feed">{{ feed_title }}</div>{% endif %}
     </div>
     <div class="title">{{ title }}</div>
     {% if published %}<div class="meta">{{ published }}</div>{% endif %}
     {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
-    {% if link %}<div class="link">{{ link }}</div>{% endif %}
+    <div class="footer">{{ render_time }}</div>
   </div>
 </body>
 </html>
@@ -145,11 +135,9 @@ IMAGE_TEMPLATE_PRESETS = {
     .card { padding: 34px; border-radius: 32px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(22px); color: white; box-shadow: 0 18px 60px rgba(0,0,0,0.3); }
     .row { display:flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
     .chip { background: rgba(255,255,255,0.18); border-radius: 999px; padding: 8px 14px; font-size: 18px; }
-    .alias { font-size: 38px; font-weight: 800; margin-bottom: 12px; }
     .title { font-size: 30px; line-height: 1.5; margin-bottom: 14px; }
-    .feed { font-size: 21px; color: #ddd6fe; margin-bottom: 16px; }
     .summary { background: rgba(15,23,42,0.25); border-radius: 22px; padding: 18px 20px; font-size: 23px; line-height: 1.72; color: #eef2ff; }
-    .link { margin-top: 18px; font-size: 18px; color: #bfdbfe; word-break: break-all; }
+    .footer { margin-top: 18px; font-size: 16px; color: #dbeafe; }
   </style>
 </head>
 <body>
@@ -159,11 +147,9 @@ IMAGE_TEMPLATE_PRESETS = {
         <div class="chip">✨ 精美预览</div>
         {% if published %}<div class="chip">{{ published }}</div>{% endif %}
       </div>
-      <div class="alias">{{ alias }}</div>
-      {% if feed_title %}<div class="feed">来自 {{ feed_title }}</div>{% endif %}
       <div class="title">{{ title }}</div>
       {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
-      {% if link %}<div class="link">{{ link }}</div>{% endif %}
+      <div class="footer">{{ render_time }}</div>
     </div>
   </div>
 </body>
@@ -178,24 +164,20 @@ IMAGE_TEMPLATE_PRESETS = {
     body { margin: 0; background: #ffffff; font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif; color: #111827; }
     .wrap { width: 1040px; margin: 0 auto; padding: 40px; box-sizing: border-box; }
     .head { border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px; }
-    .alias { font-size: 34px; font-weight: 800; }
-    .feed { font-size: 20px; color: #6b7280; margin-top: 8px; }
     .title { font-size: 32px; line-height: 1.5; margin-bottom: 16px; }
     .meta { color: #6b7280; font-size: 18px; margin-bottom: 18px; }
     .summary { font-size: 22px; line-height: 1.75; color: #1f2937; }
-    .link { margin-top: 20px; font-size: 18px; color: #2563eb; word-break: break-all; }
+    .footer { margin-top: 20px; font-size: 16px; color: #6b7280; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="head">
-      <div class="alias">{{ alias }}</div>
-      {% if feed_title %}<div class="feed">{{ feed_title }}</div>{% endif %}
+      <div class="title">{{ title }}</div>
     </div>
-    <div class="title">{{ title }}</div>
     {% if published %}<div class="meta">{{ published }}</div>{% endif %}
     {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
-    {% if link %}<div class="link">{{ link }}</div>{% endif %}
+    <div class="footer">{{ render_time }}</div>
   </div>
 </body>
 </html>
@@ -987,7 +969,7 @@ class RSSBridgePlugin(Star):
                 image_path = await self._render_entry_image(alias, feed_title, entry, umo=umo)
                 chain = MessageChain().file_image(str(image_path))
                 if entry.get("link"):
-                    chain.message(f"\n链接：{entry['link']}")
+                    chain.message(f"\n来源：{entry['link']}")
                 await self.context.send_message(umo, chain)
                 return
             except Exception as exc:
@@ -1551,6 +1533,7 @@ class RSSBridgePlugin(Star):
             "published": published,
             "summary": summary,
             "link": link,
+            "render_time": self._render_timestamp_beijing(),
             "feed_title_line": f"源标题：{safe_feed_title}\n" if safe_feed_title else "",
             "title_line": f"标题：{title}\n" if title else "",
             "published_line": f"时间：{published}\n" if published else "",
@@ -1592,6 +1575,12 @@ class RSSBridgePlugin(Star):
 
     def _now_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
+
+    def _render_timestamp_beijing(self) -> str:
+        from datetime import timedelta
+
+        tz = timezone(timedelta(hours=8))
+        return datetime.now(tz).strftime("北京时间：%Y-%m-%d %H:%M:%S")
 
 
 class _SafeFormatDict(dict):
