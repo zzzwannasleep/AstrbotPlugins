@@ -8,6 +8,8 @@
 - 自定义 RSS 名称
 - 群管理员权限控制
 - 可切换/自定义推送模板
+- 支持多种图片模板预览
+- 可选用 AstrBot 文转图生成图片推送
 - 自动轮询并推送更新
 - 兼容 AstrBot 在仅传入 `context` 时的插件初始化方式
 - 兼容 AstrBot 在 `get_astrbot_data_path()` 返回字符串时的路径处理方式
@@ -20,7 +22,8 @@
 /rss rename <旧名称> <新名称>
 /rss list
 /rss check [名称]
-/rss preview
+/rss preview [风格] [text|image]
+/rss preview all image
 /rss help
 ```
 
@@ -39,7 +42,10 @@
 - `admin_only_commands`：是否仅允许群管理员执行管理命令，默认开启
 - `admin_only_list`：是否连 `list/help` 也限制为管理员，默认关闭
 - `admin_denied_message`：非管理员执行命令时的提示语
+- `message_render_mode`：实际推送模式，支持 `text` / `image`
+- `preview_render_mode`：预览命令默认模式
 - `template_style`：推送模板风格，支持 `classic` / `pretty` / `compact` / `custom`
+- `image_template_style`：图片模板风格，支持 `aurora` / `newspaper` / `glass` / `minimal`
 - `custom_message_template`：自定义单条推送模板
 - `custom_overflow_template`：一次更新过多时的汇总模板
 - `user_agent`：抓取 RSS 的请求头 User-Agent
@@ -49,6 +55,7 @@
 - 插件会把每个群的订阅独立存储。
 - 新增订阅时会把当前 feed 内容记录为基线，不会立即补发历史消息。
 - 默认只有群管理员可以管理订阅，普通成员默认可查看列表和帮助。
+- 图片模式依赖 AstrBot 自带文转图能力；若失败会自动回退为文本推送。
 - 插件状态文件保存在 `data/plugin_data/astrbot_plugin_rss_bridge/state.json`。
 
 ## 模板变量
@@ -61,6 +68,29 @@
 - 汇总模板：`{new_count}`、`{sent_count}`、`{skipped_count}`
 
 可通过 `/rss preview` 直接预览当前模板效果。
+
+## 预览模板
+
+文本风格：
+
+- `classic`
+- `pretty`
+- `compact`
+
+图片风格：
+
+- `aurora`
+- `newspaper`
+- `glass`
+- `minimal`
+
+示例：
+
+```text
+/rss preview
+/rss preview glass image
+/rss preview all image
+```
 
 ## 安装
 

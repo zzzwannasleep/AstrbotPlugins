@@ -59,6 +59,146 @@ OVERFLOW_TEMPLATE_PRESETS = {
     ),
     "compact": "{alias}：新增 {new_count} 条，已推送 {sent_count} 条，跳过 {skipped_count} 条",
 }
+IMAGE_TEMPLATE_PRESETS = {
+    "aurora": r"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { margin: 0; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 45%, #22c55e 100%); }
+    .card { width: 920px; margin: 0 auto; color: #f8fafc; padding: 38px; box-sizing: border-box; }
+    .panel { background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 20px 60px rgba(0,0,0,0.25); border-radius: 28px; padding: 34px; backdrop-filter: blur(14px); }
+    .badge { display:inline-block; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 20px; margin-bottom: 18px; }
+    .alias { font-size: 42px; font-weight: 700; line-height: 1.3; margin: 4px 0 8px; }
+    .feed { font-size: 24px; color: #bfdbfe; margin-bottom: 20px; }
+    .title { font-size: 32px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; }
+    .meta { font-size: 20px; color: #dbeafe; margin-bottom: 18px; }
+    .summary { font-size: 24px; line-height: 1.7; color: #e2e8f0; background: rgba(255,255,255,0.08); border-radius: 20px; padding: 20px 22px; }
+    .link { margin-top: 20px; font-size: 18px; color: #93c5fd; word-break: break-all; }
+    .footer { margin-top: 22px; font-size: 16px; color: rgba(255,255,255,0.75); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="panel">
+      <div class="badge">📰 RSS 更新</div>
+      <div class="alias">{{ alias }}</div>
+      {% if feed_title %}<div class="feed">源站：{{ feed_title }}</div>{% endif %}
+      <div class="title">{{ title }}</div>
+      {% if published %}<div class="meta">🕒 {{ published }}</div>{% endif %}
+      {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
+      {% if link %}<div class="link">🔗 {{ link }}</div>{% endif %}
+      <div class="footer">AstrBot RSS 群组订阅桥接</div>
+    </div>
+  </div>
+</body>
+</html>
+""",
+    "newspaper": r"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { margin: 0; background: #f6efe2; font-family: Georgia, "Times New Roman", "Songti SC", serif; color: #1f2937; }
+    .paper { width: 900px; margin: 0 auto; padding: 34px; box-sizing: border-box; background: linear-gradient(180deg, #fbf7ef 0%, #f3ead8 100%); border-left: 10px solid #7c2d12; border-right: 10px solid #7c2d12; }
+    .top { border-bottom: 4px double #7c2d12; padding-bottom: 14px; margin-bottom: 24px; }
+    .tag { font-size: 18px; letter-spacing: 4px; color: #7c2d12; text-transform: uppercase; }
+    .alias { font-size: 40px; font-weight: 700; margin-top: 10px; }
+    .feed { font-size: 22px; color: #92400e; margin-top: 8px; }
+    .title { font-size: 34px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; }
+    .meta { font-size: 19px; color: #6b7280; margin-bottom: 18px; }
+    .summary { font-size: 24px; line-height: 1.85; text-align: justify; column-count: 2; column-gap: 28px; }
+    .link { margin-top: 20px; font-size: 18px; color: #7c2d12; word-break: break-all; border-top: 1px dashed #b45309; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="paper">
+    <div class="top">
+      <div class="tag">RSS BULLETIN</div>
+      <div class="alias">{{ alias }}</div>
+      {% if feed_title %}<div class="feed">{{ feed_title }}</div>{% endif %}
+    </div>
+    <div class="title">{{ title }}</div>
+    {% if published %}<div class="meta">{{ published }}</div>{% endif %}
+    {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
+    {% if link %}<div class="link">{{ link }}</div>{% endif %}
+  </div>
+</body>
+</html>
+""",
+    "glass": r"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { margin:0; background:
+      radial-gradient(circle at top left, #f472b6 0%, transparent 28%),
+      radial-gradient(circle at top right, #60a5fa 0%, transparent 34%),
+      linear-gradient(135deg, #111827 0%, #312e81 50%, #1f2937 100%);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .wrap { width: 920px; margin: 0 auto; padding: 40px; box-sizing: border-box; }
+    .card { padding: 34px; border-radius: 32px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(22px); color: white; box-shadow: 0 18px 60px rgba(0,0,0,0.3); }
+    .row { display:flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
+    .chip { background: rgba(255,255,255,0.18); border-radius: 999px; padding: 8px 14px; font-size: 18px; }
+    .alias { font-size: 38px; font-weight: 800; margin-bottom: 12px; }
+    .title { font-size: 30px; line-height: 1.5; margin-bottom: 14px; }
+    .feed { font-size: 21px; color: #ddd6fe; margin-bottom: 16px; }
+    .summary { background: rgba(15,23,42,0.25); border-radius: 22px; padding: 18px 20px; font-size: 23px; line-height: 1.72; color: #eef2ff; }
+    .link { margin-top: 18px; font-size: 18px; color: #bfdbfe; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div class="chip">✨ 精美预览</div>
+        {% if published %}<div class="chip">{{ published }}</div>{% endif %}
+      </div>
+      <div class="alias">{{ alias }}</div>
+      {% if feed_title %}<div class="feed">来自 {{ feed_title }}</div>{% endif %}
+      <div class="title">{{ title }}</div>
+      {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
+      {% if link %}<div class="link">{{ link }}</div>{% endif %}
+    </div>
+  </div>
+</body>
+</html>
+""",
+    "minimal": r"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { margin: 0; background: #ffffff; font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif; color: #111827; }
+    .wrap { width: 860px; margin: 0 auto; padding: 34px; box-sizing: border-box; }
+    .head { border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px; }
+    .alias { font-size: 34px; font-weight: 800; }
+    .feed { font-size: 20px; color: #6b7280; margin-top: 8px; }
+    .title { font-size: 32px; line-height: 1.5; margin-bottom: 16px; }
+    .meta { color: #6b7280; font-size: 18px; margin-bottom: 18px; }
+    .summary { font-size: 22px; line-height: 1.75; color: #1f2937; }
+    .link { margin-top: 20px; font-size: 18px; color: #2563eb; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="alias">{{ alias }}</div>
+      {% if feed_title %}<div class="feed">{{ feed_title }}</div>{% endif %}
+    </div>
+    <div class="title">{{ title }}</div>
+    {% if published %}<div class="meta">{{ published }}</div>{% endif %}
+    {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
+    {% if link %}<div class="link">{{ link }}</div>{% endif %}
+  </div>
+</body>
+</html>
+""",
+}
 
 
 class RSSBridgePlugin(Star):
@@ -148,8 +288,9 @@ class RSSBridgePlugin(Star):
             return
 
         if action in {"preview", "template"}:
-            message = self._handle_preview_template()
-            yield event.plain_result(message)
+            preview_args = tokens[1:]
+            async for preview_result in self._handle_preview_template(event, preview_args):
+                yield preview_result
             return
 
         yield event.plain_result(
@@ -431,21 +572,16 @@ class RSSBridgePlugin(Star):
 
             try:
                 for entry in to_send:
-                    message = self._format_entry_message(alias, feed_title, entry)
-                    await self.context.send_message(umo, MessageChain().message(message))
+                    await self._send_entry_update(umo, alias, feed_title, entry)
                     sent_entries.append(entry)
 
                 if skipped_count > 0:
-                    await self.context.send_message(
+                    await self._send_overflow_update(
                         umo,
-                        MessageChain().message(
-                            self._format_overflow_message(
-                                alias=alias,
-                                new_count=len(unseen_entries),
-                                sent_count=len(to_send),
-                                skipped_count=skipped_count,
-                            )
-                        ),
+                        alias=alias,
+                        new_count=len(unseen_entries),
+                        sent_count=len(to_send),
+                        skipped_count=skipped_count,
                     )
             except Exception as exc:
                 merged_seen = self._merge_seen_entries(
@@ -602,17 +738,26 @@ class RSSBridgePlugin(Star):
         return ""
 
     def _format_entry_message(
-        self, alias: str, feed_title: str, entry: dict[str, str]
+        self,
+        alias: str,
+        feed_title: str,
+        entry: dict[str, str],
+        style: str | None = None,
     ) -> str:
         context = self._build_message_template_context(alias, feed_title, entry)
-        template = self._entry_template()
+        template = self._entry_template(style)
         fallback = MESSAGE_TEMPLATE_PRESETS.get(
-            self._template_style(), MESSAGE_TEMPLATE_PRESETS["pretty"]
+            self._template_style(style), MESSAGE_TEMPLATE_PRESETS["pretty"]
         )
         return self._render_template(template, context, fallback)
 
     def _format_overflow_message(
-        self, alias: str, new_count: int, sent_count: int, skipped_count: int
+        self,
+        alias: str,
+        new_count: int,
+        sent_count: int,
+        skipped_count: int,
+        style: str | None = None,
     ) -> str:
         context = {
             "alias": alias,
@@ -620,13 +765,28 @@ class RSSBridgePlugin(Star):
             "sent_count": str(sent_count),
             "skipped_count": str(skipped_count),
         }
-        template = self._overflow_template()
+        template = self._overflow_template(style)
         fallback = OVERFLOW_TEMPLATE_PRESETS.get(
-            self._template_style(), OVERFLOW_TEMPLATE_PRESETS["pretty"]
+            self._template_style(style), OVERFLOW_TEMPLATE_PRESETS["pretty"]
         )
         return self._render_template(template, context, fallback)
 
-    def _handle_preview_template(self) -> str:
+    async def _handle_preview_template(
+        self, event: AstrMessageEvent, args: list[str]
+    ):
+        mode = self._preview_mode()
+        style = ""
+        show_all = False
+
+        for arg in args:
+            normalized = arg.strip().lower()
+            if normalized in {"text", "image"}:
+                mode = normalized
+            elif normalized in {"all", "styles"}:
+                show_all = True
+            elif normalized in self._all_template_styles():
+                style = normalized
+
         sample_entry = {
             "title": "AstrBot RSS 模板预览示例",
             "published": "2026-03-22 12:00:00 +0800",
@@ -636,14 +796,139 @@ class RSSBridgePlugin(Star):
             ),
             "link": "https://example.com/rss-preview",
         }
-        message_preview = self._format_entry_message("演示订阅", "AstrBot 官方博客", sample_entry)
-        overflow_preview = self._format_overflow_message(
-            alias="演示订阅",
-            new_count=8,
-            sent_count=3,
-            skipped_count=5,
+        if mode == "image":
+            styles = self._image_preview_styles(style, show_all)
+            yield event.plain_result(
+                "开始预览图片模板："
+                + "、".join(styles)
+                + "\n如需查看全部图片风格，可用：/rss preview all image"
+            )
+            for style_name in styles:
+                try:
+                    image_path = await self._render_entry_image(
+                        alias="演示订阅",
+                        feed_title="AstrBot 官方博客",
+                        entry=sample_entry,
+                        style=style_name,
+                    )
+                    yield event.plain_result(f"图片模板：{style_name}")
+                    yield event.image_result(str(image_path))
+                except Exception as exc:
+                    logger.warning("[%s] 图片模板预览失败: %s", PLUGIN_NAME, exc)
+                    yield event.plain_result(
+                        f"图片模板 {style_name} 预览失败：{exc}\n"
+                        "请确认 AstrBot 已安装文转图依赖。"
+                    )
+            return
+
+        styles = self._text_preview_styles(style, show_all)
+        preview_blocks: list[str] = []
+        for style_name in styles:
+            preview_blocks.append(
+                f"=== 文本模板：{style_name} ===\n"
+                + self._format_entry_message(
+                    "演示订阅",
+                    "AstrBot 官方博客",
+                    sample_entry,
+                    style=style_name,
+                )
+                + "\n\n"
+                + self._format_overflow_message(
+                    alias="演示订阅",
+                    new_count=8,
+                    sent_count=3,
+                    skipped_count=5,
+                    style=style_name,
+                )
+            )
+        yield event.plain_result("\n\n".join(preview_blocks))
+
+    async def _send_entry_update(
+        self, umo: str, alias: str, feed_title: str, entry: dict[str, str]
+    ):
+        render_mode = self._message_render_mode()
+        if render_mode == "image":
+            try:
+                image_path = await self._render_entry_image(alias, feed_title, entry)
+                chain = MessageChain().file_image(str(image_path))
+                if entry.get("link"):
+                    chain.message(f"\n链接：{entry['link']}")
+                await self.context.send_message(umo, chain)
+                return
+            except Exception as exc:
+                logger.warning("[%s] 图片推送失败，已回退文本: %s", PLUGIN_NAME, exc)
+
+        message = self._format_entry_message(alias, feed_title, entry)
+        await self.context.send_message(umo, MessageChain().message(message))
+
+    async def _send_overflow_update(
+        self, umo: str, alias: str, new_count: int, sent_count: int, skipped_count: int
+    ):
+        render_mode = self._message_render_mode()
+        if render_mode == "image":
+            try:
+                image_path = await self._render_overflow_image(
+                    alias=alias,
+                    new_count=new_count,
+                    sent_count=sent_count,
+                    skipped_count=skipped_count,
+                )
+                await self.context.send_message(umo, MessageChain().file_image(str(image_path)))
+                return
+            except Exception as exc:
+                logger.warning("[%s] 图片汇总推送失败，已回退文本: %s", PLUGIN_NAME, exc)
+
+        await self.context.send_message(
+            umo,
+            MessageChain().message(
+                self._format_overflow_message(
+                    alias=alias,
+                    new_count=new_count,
+                    sent_count=sent_count,
+                    skipped_count=skipped_count,
+                )
+            ),
         )
-        return f"{message_preview}\n\n{overflow_preview}"
+
+    async def _render_entry_image(
+        self,
+        alias: str,
+        feed_title: str,
+        entry: dict[str, str],
+        style: str | None = None,
+    ) -> str:
+        template = self._image_template(style)
+        data = self._build_message_template_context(alias, feed_title, entry)
+        return await self.html_render(
+            template,
+            data,
+            return_url=False,
+        )
+
+    async def _render_overflow_image(
+        self,
+        alias: str,
+        new_count: int,
+        sent_count: int,
+        skipped_count: int,
+        style: str | None = None,
+    ) -> str:
+        template = self._image_template(style)
+        data = {
+            "alias": alias,
+            "feed_title": "RSS 批量更新汇总",
+            "title": f"本次新增 {new_count} 条内容",
+            "published": self._now_iso(),
+            "summary": (
+                f"已推送 {sent_count} 条；为避免刷屏，已跳过 {skipped_count} 条。"
+            ),
+            "link": "",
+        }
+        return await self.html_render(
+            template,
+            data,
+            return_url=False,
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session and not self._session.closed:
@@ -818,8 +1103,11 @@ class RSSBridgePlugin(Star):
             "/rss rename <旧名称> <新名称>  重命名订阅\n"
             "/rss list                  查看本群订阅\n"
             "/rss check [名称]          立即检查更新\n"
-            "/rss preview               预览当前推送模板\n"
+            "/rss preview [风格] [text|image]  预览模板\n"
+            "/rss preview all image     预览全部图片风格\n"
             "/rss help                  查看帮助\n\n"
+            "文本风格：classic / pretty / compact\n"
+            "图片风格：aurora / newspaper / glass / minimal\n\n"
             "如果名称里有空格，请使用引号，例如：\n"
             '/rss add "少数派" https://sspai.com/feed'
         )
@@ -888,8 +1176,8 @@ class RSSBridgePlugin(Star):
         ).strip()
         return value or "只有群管理员才可以管理本群的 RSS 订阅。"
 
-    def _entry_template(self) -> str:
-        style = self._template_style()
+    def _entry_template(self, style: str | None = None) -> str:
+        style = self._template_style(style)
         if style == "custom":
             custom_template = str(self.config.get("custom_message_template", "") or "").strip()
             if custom_template:
@@ -897,8 +1185,8 @@ class RSSBridgePlugin(Star):
             style = "pretty"
         return MESSAGE_TEMPLATE_PRESETS.get(style, MESSAGE_TEMPLATE_PRESETS["pretty"])
 
-    def _overflow_template(self) -> str:
-        style = self._template_style()
+    def _overflow_template(self, style: str | None = None) -> str:
+        style = self._template_style(style)
         if style == "custom":
             custom_template = str(self.config.get("custom_overflow_template", "") or "").strip()
             if custom_template:
@@ -906,11 +1194,53 @@ class RSSBridgePlugin(Star):
             style = "pretty"
         return OVERFLOW_TEMPLATE_PRESETS.get(style, OVERFLOW_TEMPLATE_PRESETS["pretty"])
 
-    def _template_style(self) -> str:
-        value = str(self.config.get("template_style", "pretty") or "").strip().lower()
+    def _template_style(self, style: str | None = None) -> str:
+        value = str(style or self.config.get("template_style", "pretty") or "").strip().lower()
         if value in {"classic", "pretty", "compact", "custom"}:
             return value
         return "pretty"
+
+    def _image_template(self, style: str | None = None) -> str:
+        return IMAGE_TEMPLATE_PRESETS.get(
+            self._image_template_style(style), IMAGE_TEMPLATE_PRESETS["aurora"]
+        )
+
+    def _image_template_style(self, style: str | None = None) -> str:
+        value = str(style or self.config.get("image_template_style", "aurora") or "").strip().lower()
+        if value in IMAGE_TEMPLATE_PRESETS:
+            return value
+        return "aurora"
+
+    def _message_render_mode(self) -> str:
+        value = str(self.config.get("message_render_mode", "text") or "").strip().lower()
+        if value in {"text", "image"}:
+            return value
+        return "text"
+
+    def _preview_mode(self) -> str:
+        value = str(
+            self.config.get("preview_render_mode", self._message_render_mode()) or ""
+        ).strip().lower()
+        if value in {"text", "image"}:
+            return value
+        return "text"
+
+    def _all_template_styles(self) -> set[str]:
+        return set(MESSAGE_TEMPLATE_PRESETS) | set(IMAGE_TEMPLATE_PRESETS) | {"custom"}
+
+    def _text_preview_styles(self, style: str, show_all: bool) -> list[str]:
+        if style and style in MESSAGE_TEMPLATE_PRESETS:
+            return [style]
+        if show_all:
+            return list(MESSAGE_TEMPLATE_PRESETS.keys())
+        return [self._template_style()]
+
+    def _image_preview_styles(self, style: str, show_all: bool) -> list[str]:
+        if style and style in IMAGE_TEMPLATE_PRESETS:
+            return [style]
+        if show_all:
+            return list(IMAGE_TEMPLATE_PRESETS.keys())
+        return [self._image_template_style()]
 
     def _build_message_template_context(
         self, alias: str, feed_title: str, entry: dict[str, str]

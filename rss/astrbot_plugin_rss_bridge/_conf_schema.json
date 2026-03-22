@@ -46,6 +46,24 @@
     "hint": "可填 classic / pretty / compact / custom，默认 pretty。",
     "default": "pretty"
   },
+  "message_render_mode": {
+    "type": "string",
+    "description": "实际推送模式",
+    "hint": "可填 text / image。image 模式会优先用 AstrBot 文转图生成为图片推送，失败时自动回退文本。",
+    "default": "text"
+  },
+  "preview_render_mode": {
+    "type": "string",
+    "description": "预览命令默认模式",
+    "hint": "可填 text / image，默认跟随实际推送模式。",
+    "default": "image"
+  },
+  "image_template_style": {
+    "type": "string",
+    "description": "图片模板风格",
+    "hint": "可填 aurora / newspaper / glass / minimal。",
+    "default": "aurora"
+  },
   "custom_message_template": {
     "type": "string",
     "description": "自定义消息模板",
