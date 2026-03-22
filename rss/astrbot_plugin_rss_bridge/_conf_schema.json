@@ -1,0 +1,66 @@
+{
+  "poll_interval_seconds": {
+    "type": "int",
+    "description": "RSS 轮询间隔（秒）",
+    "hint": "插件后台会按此间隔检查所有群组订阅，最小实际生效值为 60 秒。",
+    "default": 300
+  },
+  "request_timeout_seconds": {
+    "type": "int",
+    "description": "单次 RSS 请求超时时间（秒）",
+    "hint": "用于限制抓取 RSS 时的最长等待时间。",
+    "default": 15
+  },
+  "summary_max_length": {
+    "type": "int",
+    "description": "推送摘要最大长度",
+    "hint": "超过长度的摘要会自动截断。",
+    "default": 180
+  },
+  "max_entries_per_push": {
+    "type": "int",
+    "description": "每次检查最多推送的新增条目数",
+    "hint": "如果一次性更新过多，为避免刷屏，只推送最近几条。",
+    "default": 3
+  },
+  "admin_only_commands": {
+    "type": "bool",
+    "description": "是否仅允许群管理员执行管理命令",
+    "hint": "开启后，add / del / rename / check / preview 等命令只有群管理员可用。",
+    "default": true
+  },
+  "admin_only_list": {
+    "type": "bool",
+    "description": "是否连 list / help 也限制为管理员",
+    "hint": "默认关闭，普通群成员仍可查看帮助和本群订阅列表。",
+    "default": false
+  },
+  "admin_denied_message": {
+    "type": "string",
+    "description": "非管理员执行命令时的提示语",
+    "default": "只有群管理员才可以管理本群的 RSS 订阅。"
+  },
+  "template_style": {
+    "type": "string",
+    "description": "推送模板风格",
+    "hint": "可填 classic / pretty / compact / custom，默认 pretty。",
+    "default": "pretty"
+  },
+  "custom_message_template": {
+    "type": "string",
+    "description": "自定义消息模板",
+    "hint": "仅在 template_style=custom 时生效。可用变量：alias、feed_title、title、published、summary、link 以及 *_line / *_pretty。",
+    "default": ""
+  },
+  "custom_overflow_template": {
+    "type": "string",
+    "description": "自定义汇总模板",
+    "hint": "仅在 template_style=custom 时生效。可用变量：alias、new_count、sent_count、skipped_count。",
+    "default": ""
+  },
+  "user_agent": {
+    "type": "string",
+    "description": "抓取 RSS 时使用的 User-Agent",
+    "default": "astrbot-plugin-rss-bridge/0.1.0"
+  }
+}
