@@ -76,6 +76,12 @@
     "hint": "文转图服务生成图片的等待时间。",
     "default": 15000
   },
+  "image_compression_quality": {
+    "type": "int",
+    "description": "图片压缩质量",
+    "hint": "范围 80-100。100 表示直接使用原始高清图；低于 100 时会在发送前压缩为高质量 JPEG。",
+    "default": 95
+  },
   "custom_message_template": {
     "type": "string",
     "description": "自定义消息模板",

@@ -11,9 +11,11 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from uuid import uuid4
 
 import aiohttp
 import feedparser
+from PIL import Image
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, MessageChain, filter
 from astrbot.api.star import Context, Star
@@ -224,6 +226,7 @@ class RSSBridgePlugin(Star):
         self._state: dict[str, Any] | None = None
         self._data_dir: Path = Path(get_astrbot_data_path()) / "plugin_data" / PLUGIN_NAME
         self._state_file: Path = self._data_dir / "state.json"
+        self._rendered_dir: Path = self._data_dir / "rendered"
 
     @filter.on_astrbot_loaded()
     async def on_astrbot_loaded(self):
@@ -1029,12 +1032,13 @@ class RSSBridgePlugin(Star):
     ) -> str:
         template = self._image_template(style, umo)
         data = self._build_message_template_context(alias, feed_title, entry)
-        return await self.html_render(
+        rendered_path = await self.html_render(
             template,
             data,
             return_url=False,
             options=self._image_render_options(),
         )
+        return await self._maybe_compress_rendered_image(str(rendered_path))
 
     async def _render_overflow_image(
         self,
@@ -1056,12 +1060,13 @@ class RSSBridgePlugin(Star):
             ),
             "link": "",
         }
-        return await self.html_render(
+        rendered_path = await self.html_render(
             template,
             data,
             return_url=False,
             options=self._image_render_options(),
         )
+        return await self._maybe_compress_rendered_image(str(rendered_path))
 
     async def _build_feed_preview_entry(self, umo: str, alias: str) -> dict[str, Any]:
         await self._ensure_state_loaded()
@@ -1104,6 +1109,7 @@ class RSSBridgePlugin(Star):
                 return
 
             self._data_dir.mkdir(parents=True, exist_ok=True)
+            self._rendered_dir.mkdir(parents=True, exist_ok=True)
             if self._state_file.exists():
                 try:
                     self._state = self._normalize_state(
@@ -1356,6 +1362,41 @@ class RSSBridgePlugin(Star):
             "timeout": self._image_render_timeout_ms(),
         }
 
+    async def _maybe_compress_rendered_image(self, image_path: str) -> str:
+        quality = self._image_compression_quality()
+        if quality >= 100:
+            return image_path
+
+        try:
+            await self._ensure_state_loaded()
+            return await asyncio.to_thread(
+                self._compress_rendered_image_sync,
+                image_path,
+                quality,
+            )
+        except Exception as exc:
+            logger.warning("[%s] 图片压缩失败，已使用原图: %s", PLUGIN_NAME, exc)
+            return image_path
+
+    def _compress_rendered_image_sync(self, image_path: str, quality: int) -> str:
+        source_path = Path(image_path)
+        if not source_path.exists():
+            raise FileNotFoundError(f"图片文件不存在: {image_path}")
+
+        self._rendered_dir.mkdir(parents=True, exist_ok=True)
+        target_path = self._rendered_dir / f"{source_path.stem}-{uuid4().hex}.jpg"
+        with Image.open(source_path) as img:
+            if img.mode not in {"RGB", "L"}:
+                img = img.convert("RGB")
+            img.save(
+                target_path,
+                format="JPEG",
+                quality=quality,
+                optimize=True,
+                subsampling=0,
+            )
+        return str(target_path)
+
     def _image_render_scale(self) -> str:
         value = str(self.config.get("image_render_scale", "device") or "").strip().lower()
         if value in {"css", "device"}:
@@ -1365,6 +1406,10 @@ class RSSBridgePlugin(Star):
     def _image_render_timeout_ms(self) -> int:
         value = int(self.config.get("image_render_timeout_ms", 15000) or 15000)
         return max(3000, value)
+
+    def _image_compression_quality(self) -> int:
+        value = int(self.config.get("image_compression_quality", 95) or 95)
+        return min(100, max(80, value))
 
     def _requires_admin(self, action: str) -> bool:
         if action in {"help", "h", "?", "list"}:
