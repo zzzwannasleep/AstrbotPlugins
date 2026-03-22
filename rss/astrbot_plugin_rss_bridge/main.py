@@ -72,7 +72,10 @@ IMAGE_TEMPLATE_PRESETS = {
     .card { width: 1120px; margin: 0 auto; color: #f8fafc; padding: 44px; box-sizing: border-box; }
     .panel { background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 20px 60px rgba(0,0,0,0.25); border-radius: 28px; padding: 34px; backdrop-filter: blur(14px); }
     .badge { display:inline-block; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 20px; margin-bottom: 18px; }
-    .title { font-size: 32px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; }
+    .title { font-size: 32px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; overflow-wrap: anywhere; word-break: break-word; text-wrap: balance; }
+    .title.title-medium { font-size: 29px; line-height: 1.5; }
+    .title.title-long { font-size: 26px; line-height: 1.58; }
+    .title.title-xlong { font-size: 23px; line-height: 1.65; }
     .meta { font-size: 20px; color: #dbeafe; margin-bottom: 18px; }
     .summary { font-size: 24px; line-height: 1.7; color: #e2e8f0; background: rgba(255,255,255,0.08); border-radius: 20px; padding: 20px 22px; }
     .footer { margin-top: 22px; font-size: 16px; color: rgba(255,255,255,0.75); }
@@ -82,7 +85,7 @@ IMAGE_TEMPLATE_PRESETS = {
   <div class="card">
     <div class="panel">
       <div class="badge">📰 RSS 更新</div>
-      <div class="title">{{ title }}</div>
+      <div class="title {{ title_class }}">{{ title }}</div>
       {% if published %}<div class="meta">🕒 {{ published }}</div>{% endif %}
       {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
       <div class="footer">{{ render_time }}</div>
@@ -101,7 +104,10 @@ IMAGE_TEMPLATE_PRESETS = {
     .paper { width: 1080px; margin: 0 auto; padding: 40px; box-sizing: border-box; background: linear-gradient(180deg, #fbf7ef 0%, #f3ead8 100%); border-left: 10px solid #7c2d12; border-right: 10px solid #7c2d12; }
     .top { border-bottom: 4px double #7c2d12; padding-bottom: 14px; margin-bottom: 24px; }
     .tag { font-size: 18px; letter-spacing: 4px; color: #7c2d12; text-transform: uppercase; }
-    .title { font-size: 34px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; }
+    .title { font-size: 34px; line-height: 1.45; font-weight: 700; margin-bottom: 18px; overflow-wrap: anywhere; word-break: break-word; text-wrap: balance; }
+    .title.title-medium { font-size: 31px; line-height: 1.5; }
+    .title.title-long { font-size: 28px; line-height: 1.58; }
+    .title.title-xlong { font-size: 25px; line-height: 1.65; }
     .meta { font-size: 19px; color: #6b7280; margin-bottom: 18px; }
     .summary { font-size: 24px; line-height: 1.85; text-align: justify; column-count: 2; column-gap: 28px; }
     .footer { margin-top: 18px; font-size: 16px; color: #92400e; border-top: 1px dashed #b45309; padding-top: 12px; }
@@ -112,7 +118,7 @@ IMAGE_TEMPLATE_PRESETS = {
     <div class="top">
       <div class="tag">RSS BULLETIN</div>
     </div>
-    <div class="title">{{ title }}</div>
+    <div class="title {{ title_class }}">{{ title }}</div>
     {% if published %}<div class="meta">{{ published }}</div>{% endif %}
     {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
     <div class="footer">{{ render_time }}</div>
@@ -135,7 +141,10 @@ IMAGE_TEMPLATE_PRESETS = {
     .card { padding: 34px; border-radius: 32px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(22px); color: white; box-shadow: 0 18px 60px rgba(0,0,0,0.3); }
     .row { display:flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
     .chip { background: rgba(255,255,255,0.18); border-radius: 999px; padding: 8px 14px; font-size: 18px; }
-    .title { font-size: 30px; line-height: 1.5; margin-bottom: 14px; }
+    .title { font-size: 30px; line-height: 1.5; margin-bottom: 14px; overflow-wrap: anywhere; word-break: break-word; text-wrap: balance; }
+    .title.title-medium { font-size: 28px; line-height: 1.55; }
+    .title.title-long { font-size: 25px; line-height: 1.62; }
+    .title.title-xlong { font-size: 22px; line-height: 1.7; }
     .summary { background: rgba(15,23,42,0.25); border-radius: 22px; padding: 18px 20px; font-size: 23px; line-height: 1.72; color: #eef2ff; }
     .footer { margin-top: 18px; font-size: 16px; color: #dbeafe; }
   </style>
@@ -147,7 +156,7 @@ IMAGE_TEMPLATE_PRESETS = {
         <div class="chip">✨ 精美预览</div>
         {% if published %}<div class="chip">{{ published }}</div>{% endif %}
       </div>
-      <div class="title">{{ title }}</div>
+      <div class="title {{ title_class }}">{{ title }}</div>
       {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
       <div class="footer">{{ render_time }}</div>
     </div>
@@ -164,7 +173,10 @@ IMAGE_TEMPLATE_PRESETS = {
     body { margin: 0; background: #ffffff; font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif; color: #111827; }
     .wrap { width: 1040px; margin: 0 auto; padding: 40px; box-sizing: border-box; }
     .head { border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px; }
-    .title { font-size: 32px; line-height: 1.5; margin-bottom: 16px; }
+    .title { font-size: 32px; line-height: 1.5; margin-bottom: 16px; overflow-wrap: anywhere; word-break: break-word; text-wrap: balance; }
+    .title.title-medium { font-size: 29px; line-height: 1.55; }
+    .title.title-long { font-size: 26px; line-height: 1.62; }
+    .title.title-xlong { font-size: 23px; line-height: 1.7; }
     .meta { color: #6b7280; font-size: 18px; margin-bottom: 18px; }
     .summary { font-size: 22px; line-height: 1.75; color: #1f2937; }
     .footer { margin-top: 20px; font-size: 16px; color: #6b7280; }
@@ -173,7 +185,7 @@ IMAGE_TEMPLATE_PRESETS = {
 <body>
   <div class="wrap">
     <div class="head">
-      <div class="title">{{ title }}</div>
+      <div class="title {{ title_class }}">{{ title }}</div>
     </div>
     {% if published %}<div class="meta">{{ published }}</div>{% endif %}
     {% if summary %}<div class="summary">{{ summary }}</div>{% endif %}
@@ -1530,6 +1542,7 @@ class RSSBridgePlugin(Star):
             "alias": alias,
             "feed_title": safe_feed_title,
             "title": title,
+            "title_class": self._title_length_class(title),
             "published": published,
             "summary": summary,
             "link": link,
@@ -1581,6 +1594,16 @@ class RSSBridgePlugin(Star):
 
         tz = timezone(timedelta(hours=8))
         return datetime.now(tz).strftime("北京时间：%Y-%m-%d %H:%M:%S")
+
+    def _title_length_class(self, title: str) -> str:
+        length = len((title or "").strip())
+        if length >= 70:
+            return "title-xlong"
+        if length >= 42:
+            return "title-long"
+        if length >= 24:
+            return "title-medium"
+        return ""
 
 
 class _SafeFormatDict(dict):
