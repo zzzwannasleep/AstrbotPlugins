@@ -56,6 +56,8 @@
 - `preview_render_mode`：预览命令默认模式
 - `template_style`：推送模板风格，支持 `classic` / `pretty` / `compact` / `custom`
 - `image_template_style`：图片模板风格，支持 `aurora` / `newspaper` / `glass` / `minimal`
+- `image_render_scale`：图片渲染缩放，推荐 `device`
+- `image_render_timeout_ms`：图片渲染超时时间
 - `custom_message_template`：自定义单条推送模板
 - `custom_overflow_template`：一次更新过多时的汇总模板
 - `user_agent`：抓取 RSS 的请求头 User-Agent
@@ -67,6 +69,7 @@
 - 新增订阅时会把当前 feed 内容记录为基线，不会立即补发历史消息。
 - 默认只有群管理员可以管理订阅，普通成员默认可查看列表和帮助。
 - 图片模式依赖 AstrBot 自带文转图能力；若失败会自动回退为文本推送。
+- 为提升清晰度，插件会使用 PNG + `scale=device` + 更宽画布进行渲染。
 - 插件状态文件保存在 `data/plugin_data/astrbot_plugin_rss_bridge/state.json`。
 
 ## 模板变量

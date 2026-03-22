@@ -64,6 +64,18 @@
     "hint": "全局默认图片风格，可填 aurora / newspaper / glass / minimal。也可在群里用 /rss style image 单独覆盖。",
     "default": "aurora"
   },
+  "image_render_scale": {
+    "type": "string",
+    "description": "图片渲染缩放模式",
+    "hint": "文转图 html_render 的 scale 选项。推荐 device，更清晰；css 兼容性更保守。",
+    "default": "device"
+  },
+  "image_render_timeout_ms": {
+    "type": "int",
+    "description": "图片渲染超时时间（毫秒）",
+    "hint": "文转图服务生成图片的等待时间。",
+    "default": 15000
+  },
   "custom_message_template": {
     "type": "string",
     "description": "自定义消息模板",

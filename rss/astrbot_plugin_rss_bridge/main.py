@@ -67,7 +67,7 @@ IMAGE_TEMPLATE_PRESETS = {
   <meta charset="UTF-8" />
   <style>
     body { margin: 0; font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 45%, #22c55e 100%); }
-    .card { width: 920px; margin: 0 auto; color: #f8fafc; padding: 38px; box-sizing: border-box; }
+    .card { width: 1120px; margin: 0 auto; color: #f8fafc; padding: 44px; box-sizing: border-box; }
     .panel { background: rgba(15, 23, 42, 0.72); border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 20px 60px rgba(0,0,0,0.25); border-radius: 28px; padding: 34px; backdrop-filter: blur(14px); }
     .badge { display:inline-block; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 20px; margin-bottom: 18px; }
     .alias { font-size: 42px; font-weight: 700; line-height: 1.3; margin: 4px 0 8px; }
@@ -102,7 +102,7 @@ IMAGE_TEMPLATE_PRESETS = {
   <meta charset="UTF-8" />
   <style>
     body { margin: 0; background: #f6efe2; font-family: Georgia, "Times New Roman", "Songti SC", serif; color: #1f2937; }
-    .paper { width: 900px; margin: 0 auto; padding: 34px; box-sizing: border-box; background: linear-gradient(180deg, #fbf7ef 0%, #f3ead8 100%); border-left: 10px solid #7c2d12; border-right: 10px solid #7c2d12; }
+    .paper { width: 1080px; margin: 0 auto; padding: 40px; box-sizing: border-box; background: linear-gradient(180deg, #fbf7ef 0%, #f3ead8 100%); border-left: 10px solid #7c2d12; border-right: 10px solid #7c2d12; }
     .top { border-bottom: 4px double #7c2d12; padding-bottom: 14px; margin-bottom: 24px; }
     .tag { font-size: 18px; letter-spacing: 4px; color: #7c2d12; text-transform: uppercase; }
     .alias { font-size: 40px; font-weight: 700; margin-top: 10px; }
@@ -139,7 +139,7 @@ IMAGE_TEMPLATE_PRESETS = {
       radial-gradient(circle at top right, #60a5fa 0%, transparent 34%),
       linear-gradient(135deg, #111827 0%, #312e81 50%, #1f2937 100%);
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
-    .wrap { width: 920px; margin: 0 auto; padding: 40px; box-sizing: border-box; }
+    .wrap { width: 1120px; margin: 0 auto; padding: 44px; box-sizing: border-box; }
     .card { padding: 34px; border-radius: 32px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(22px); color: white; box-shadow: 0 18px 60px rgba(0,0,0,0.3); }
     .row { display:flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
     .chip { background: rgba(255,255,255,0.18); border-radius: 999px; padding: 8px 14px; font-size: 18px; }
@@ -174,7 +174,7 @@ IMAGE_TEMPLATE_PRESETS = {
   <meta charset="UTF-8" />
   <style>
     body { margin: 0; background: #ffffff; font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif; color: #111827; }
-    .wrap { width: 860px; margin: 0 auto; padding: 34px; box-sizing: border-box; }
+    .wrap { width: 1040px; margin: 0 auto; padding: 40px; box-sizing: border-box; }
     .head { border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px; }
     .alias { font-size: 34px; font-weight: 800; }
     .feed { font-size: 20px; color: #6b7280; margin-top: 8px; }
@@ -1033,6 +1033,7 @@ class RSSBridgePlugin(Star):
             template,
             data,
             return_url=False,
+            options=self._image_render_options(),
         )
 
     async def _render_overflow_image(
@@ -1059,6 +1060,7 @@ class RSSBridgePlugin(Star):
             template,
             data,
             return_url=False,
+            options=self._image_render_options(),
         )
 
     async def _build_feed_preview_entry(self, umo: str, alias: str) -> dict[str, Any]:
@@ -1343,6 +1345,26 @@ class RSSBridgePlugin(Star):
     def _user_agent(self) -> str:
         value = str(self.config.get("user_agent", DEFAULT_USER_AGENT) or "").strip()
         return value or DEFAULT_USER_AGENT
+
+    def _image_render_options(self) -> dict[str, Any]:
+        return {
+            "type": "png",
+            "full_page": True,
+            "animations": "disabled",
+            "caret": "hide",
+            "scale": self._image_render_scale(),
+            "timeout": self._image_render_timeout_ms(),
+        }
+
+    def _image_render_scale(self) -> str:
+        value = str(self.config.get("image_render_scale", "device") or "").strip().lower()
+        if value in {"css", "device"}:
+            return value
+        return "device"
+
+    def _image_render_timeout_ms(self) -> int:
+        value = int(self.config.get("image_render_timeout_ms", 15000) or 15000)
+        return max(3000, value)
 
     def _requires_admin(self, action: str) -> bool:
         if action in {"help", "h", "?", "list"}:
