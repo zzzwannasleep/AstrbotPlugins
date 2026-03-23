@@ -27,6 +27,7 @@ STATE_VERSION = 1
 MAX_SEEN_CACHE = 200
 DEFAULT_USER_AGENT = "astrbot-plugin-rss-bridge/0.1.0"
 BEIJING_TIMEZONE = timezone(timedelta(hours=8))
+BANGUMI_DAILY_PUSH_HOUR = 8
 BANGUMI_CALENDAR_PAGE_URL = "https://bangumi.tv/calendar"
 BANGUMI_CALENDAR_API_URL = "https://api.bgm.tv/calendar"
 BANGUMI_CALENDAR_HOSTS = {
@@ -239,6 +240,7 @@ class RSSBridgePlugin(Star):
         self._state_lock = asyncio.Lock()
         self._refresh_lock = asyncio.Lock()
         self._poll_task: asyncio.Task | None = None
+        self._bangumi_task: asyncio.Task | None = None
         self._session: aiohttp.ClientSession | None = None
         self._state: dict[str, Any] | None = None
         self._data_dir: Path = Path(get_astrbot_data_path()) / "plugin_data" / PLUGIN_NAME
@@ -252,7 +254,9 @@ class RSSBridgePlugin(Star):
             return
 
         self._poll_task = asyncio.create_task(self._poll_loop())
+        self._bangumi_task = asyncio.create_task(self._bangumi_schedule_loop())
         logger.info("[%s] RSS 轮询任务已启动", PLUGIN_NAME)
+        logger.info("[%s] Bangumi 08:00 定时推送任务已启动", PLUGIN_NAME)
 
     @filter.command("rss")
     async def rss(self, event: AstrMessageEvent):
@@ -337,6 +341,14 @@ class RSSBridgePlugin(Star):
                 pass
             self._poll_task = None
 
+        if self._bangumi_task:
+            self._bangumi_task.cancel()
+            try:
+                await self._bangumi_task
+            except asyncio.CancelledError:
+                pass
+            self._bangumi_task = None
+
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
@@ -360,7 +372,9 @@ class RSSBridgePlugin(Star):
             tasks: list[tuple[str, str]] = []
             for umo, group_data in state.get("groups", {}).items():
                 feeds = group_data.get("feeds", {})
-                for alias in feeds:
+                for alias, feed in feeds.items():
+                    if self._is_bangumi_calendar_url(str(feed.get("url") or "")):
+                        continue
                     tasks.append((umo, alias))
 
         for umo, alias in tasks:
@@ -373,6 +387,44 @@ class RSSBridgePlugin(Star):
                     alias,
                     result["error"],
                 )
+
+    async def _bangumi_schedule_loop(self):
+        await asyncio.sleep(5)
+        while True:
+            try:
+                await self._push_due_bangumi_subscriptions()
+                wait_seconds = self._seconds_until_next_bangumi_push()
+                await asyncio.sleep(wait_seconds)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("[%s] Bangumi 定时推送任务执行失败", PLUGIN_NAME)
+                await asyncio.sleep(60)
+
+    async def _push_due_bangumi_subscriptions(self):
+        targets = await self._collect_bangumi_targets()
+        for umo, alias in targets:
+            result = await self._refresh_subscription(umo, alias, manual=False)
+            if result.get("error"):
+                logger.warning(
+                    "[%s] Bangumi 定时推送失败: group=%s alias=%s error=%s",
+                    PLUGIN_NAME,
+                    umo,
+                    alias,
+                    result["error"],
+                )
+
+    async def _collect_bangumi_targets(self) -> list[tuple[str, str]]:
+        await self._ensure_state_loaded()
+        async with self._state_lock:
+            state = self._state or self._default_state()
+            tasks: list[tuple[str, str]] = []
+            for umo, group_data in state.get("groups", {}).items():
+                feeds = group_data.get("feeds", {})
+                for alias, feed in feeds.items():
+                    if self._is_bangumi_calendar_url(str(feed.get("url") or "")):
+                        tasks.append((umo, alias))
+            return tasks
 
     async def _handle_add_subscription(
         self, event: AstrMessageEvent, alias: str, url: str
@@ -393,7 +445,12 @@ class RSSBridgePlugin(Star):
 
         is_bangumi_calendar = self._is_bangumi_calendar_url(url)
         is_yuc_new = self._is_yuc_new_url(url)
-        seen_entries = probe["seen_entries"]
+        seen_entries = [] if is_bangumi_calendar else probe["seen_entries"]
+        last_bangumi_push_date = (
+            self._beijing_today()
+            if is_bangumi_calendar and self._beijing_now().hour >= BANGUMI_DAILY_PUSH_HOUR
+            else ""
+        )
         umo = event.unified_msg_origin
         async with self._refresh_lock:
             await self._ensure_state_loaded()
@@ -413,6 +470,7 @@ class RSSBridgePlugin(Star):
                     "initialized": True,
                     "last_checked_at": self._now_iso(),
                     "last_error": "",
+                    "last_bangumi_push_date": last_bangumi_push_date,
                 }
                 await self._save_state_locked()
 
@@ -429,7 +487,7 @@ class RSSBridgePlugin(Star):
             return (
                 f"已添加订阅：{alias}\n"
                 f"源标题：{title}\n"
-                "已识别为 Bangumi 每日放送，将按北京时间每天生成 1 条“今日放送”聚合推送。\n"
+                "已识别为 Bangumi 每日放送，将在北京时间每天 08:00 定时推送当天内容。\n"
                 f"如需现在立刻发送今天内容，可执行：/rss check {alias}"
             )
         return (
@@ -636,6 +694,22 @@ class RSSBridgePlugin(Star):
                 if not subscription:
                     return {"error": "订阅不存在"}
 
+            is_bangumi_calendar = self._is_bangumi_calendar_url(
+                str(subscription.get("url") or "")
+            )
+            if (
+                is_bangumi_calendar
+                and not manual
+                and not self._should_send_bangumi_now(subscription)
+            ):
+                await self._update_subscription_meta(
+                    umo,
+                    alias,
+                    last_checked_at=self._now_iso(),
+                    last_error="",
+                )
+                return {"sent_count": 0, "scheduled_skip": True}
+
             try:
                 result = await self._fetch_feed(
                     subscription["url"],
@@ -676,6 +750,7 @@ class RSSBridgePlugin(Star):
                     initialized=True,
                     last_checked_at=self._now_iso(),
                     last_error="",
+                    last_bangumi_push_date=subscription.get("last_bangumi_push_date", ""),
                 )
                 return {"sent_count": 0, "initialized": True}
 
@@ -683,16 +758,25 @@ class RSSBridgePlugin(Star):
                 item for item in entries if item["fingerprint"] not in set(seen_entries)
             ]
             if not unseen_entries:
-                await self._update_subscription_state(
-                    umo,
-                    alias,
-                    feed_title=feed_title,
-                    etag=result["etag"],
-                    last_modified=result["last_modified"],
-                    last_checked_at=self._now_iso(),
-                    last_error="",
-                )
-                return {"sent_count": 0}
+                if (
+                    is_bangumi_calendar
+                    and not manual
+                    and self._should_send_bangumi_now(subscription)
+                    and entries
+                ):
+                    unseen_entries = [entries[0]]
+                else:
+                    await self._update_subscription_state(
+                        umo,
+                        alias,
+                        feed_title=feed_title,
+                        etag=result["etag"],
+                        last_modified=result["last_modified"],
+                        last_checked_at=self._now_iso(),
+                        last_error="",
+                        last_bangumi_push_date=subscription.get("last_bangumi_push_date", ""),
+                    )
+                    return {"sent_count": 0}
 
             max_push = self._max_entries_per_push()
             to_send = list(reversed(unseen_entries[:max_push]))
@@ -726,6 +810,11 @@ class RSSBridgePlugin(Star):
                     seen_entries=merged_seen,
                     last_checked_at=self._now_iso(),
                     last_error=str(exc),
+                    last_bangumi_push_date=(
+                        self._beijing_today()
+                        if is_bangumi_calendar and sent_entries
+                        else subscription.get("last_bangumi_push_date", "")
+                    ),
                 )
                 return {"sent_count": len(sent_entries), "error": str(exc)}
 
@@ -742,6 +831,11 @@ class RSSBridgePlugin(Star):
                 seen_entries=merged_seen,
                 last_checked_at=self._now_iso(),
                 last_error="",
+                last_bangumi_push_date=(
+                    self._beijing_today()
+                    if is_bangumi_calendar and sent_entries
+                    else subscription.get("last_bangumi_push_date", "")
+                ),
             )
             return {
                 "sent_count": len(to_send),
@@ -1506,6 +1600,7 @@ class RSSBridgePlugin(Star):
                     "initialized": bool(item.get("initialized", False)),
                     "last_checked_at": str(item.get("last_checked_at") or ""),
                     "last_error": str(item.get("last_error") or ""),
+                    "last_bangumi_push_date": str(item.get("last_bangumi_push_date") or ""),
                 }
 
             raw_preferences = group_data.get("preferences", {})
@@ -1663,7 +1758,7 @@ class RSSBridgePlugin(Star):
             "/rss style image glass\n"
             "/rss style render image\n\n"
             "特殊支持：\n"
-            f"- 直接订阅 {BANGUMI_CALENDAR_PAGE_URL}，会自动转换为 Bangumi 每日放送聚合推送\n\n"
+            f"- 直接订阅 {BANGUMI_CALENDAR_PAGE_URL}，会在北京时间 08:00 定时推送 Bangumi 每日放送\n\n"
             f"- 直接订阅 {YUC_NEW_PAGE_URL} 或 {YUC_NEW_ATOM_URL}，会自动拆分为 YUC 单番剧更新推送\n\n"
             "如果名称里有空格，请使用引号，例如：\n"
             '/rss add "少数派" https://sspai.com/feed'
@@ -1681,6 +1776,24 @@ class RSSBridgePlugin(Star):
         except Exception:
             return False
         return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+    def _should_send_bangumi_now(self, subscription: dict[str, Any]) -> bool:
+        now = self._beijing_now()
+        if now.hour < BANGUMI_DAILY_PUSH_HOUR:
+            return False
+        return str(subscription.get("last_bangumi_push_date") or "") != self._beijing_today()
+
+    def _seconds_until_next_bangumi_push(self) -> float:
+        now = self._beijing_now()
+        next_run = now.replace(
+            hour=BANGUMI_DAILY_PUSH_HOUR,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        if now >= next_run:
+            next_run += timedelta(days=1)
+        return max(1.0, (next_run - now).total_seconds())
 
     def _poll_interval_seconds(self) -> int:
         value = int(self.config.get("poll_interval_seconds", 300) or 300)
@@ -1940,6 +2053,9 @@ class RSSBridgePlugin(Star):
 
     def _beijing_now(self) -> datetime:
         return datetime.now(BEIJING_TIMEZONE)
+
+    def _beijing_today(self) -> str:
+        return self._beijing_now().strftime("%Y-%m-%d")
 
     def _title_length_class(self, title: str) -> str:
         length = len((title or "").strip())

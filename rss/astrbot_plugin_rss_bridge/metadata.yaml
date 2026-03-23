@@ -2,7 +2,7 @@ name: astrbot_plugin_rss_bridge
 display_name: RSS 群组订阅桥接
 desc: 为 OneBot V11 和 Telegram 群组提供按群隔离的 RSS 订阅与自动推送能力。
 help: 使用 /rss help 查看插件命令说明。
-version: v0.4.7
+version: v0.4.8
 author: OpenAI
 repo: https://github.com/zzzwannasleep/AstrbotPlugins
 astrbot_version: ">=4.16,<5"
