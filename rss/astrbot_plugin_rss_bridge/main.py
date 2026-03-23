@@ -697,6 +697,7 @@ class RSSBridgePlugin(Star):
             is_bangumi_calendar = self._is_bangumi_calendar_url(
                 str(subscription.get("url") or "")
             )
+            is_yuc_new = self._is_yuc_new_url(str(subscription.get("url") or ""))
             if (
                 is_bangumi_calendar
                 and not manual
@@ -785,7 +786,13 @@ class RSSBridgePlugin(Star):
 
             try:
                 for entry in to_send:
-                    await self._send_entry_update(umo, alias, feed_title, entry)
+                    await self._send_entry_update(
+                        umo,
+                        alias,
+                        feed_title,
+                        entry,
+                        skip_source_link=is_bangumi_calendar or is_yuc_new,
+                    )
                     sent_entries.append(entry)
 
                 if skipped_count > 0:
@@ -1410,15 +1417,21 @@ class RSSBridgePlugin(Star):
         yield event.plain_result("\n\n".join(preview_blocks))
 
     async def _send_entry_update(
-        self, umo: str, alias: str, feed_title: str, entry: dict[str, str]
+        self,
+        umo: str,
+        alias: str,
+        feed_title: str,
+        entry: dict[str, str],
+        *,
+        skip_source_link: bool = False,
     ):
         render_mode = self._message_render_mode(umo)
         if render_mode == "image":
             try:
                 image_path = await self._render_entry_image(alias, feed_title, entry, umo=umo)
                 chain = MessageChain().file_image(str(image_path))
-                if entry.get("link"):
-                    chain.message(f"\n来源：{entry['link']}")
+                if entry.get("link") and not skip_source_link:
+                    chain.message(f"\n源链接：{entry['link']}")
                 await self.context.send_message(umo, chain)
                 return
             except Exception as exc:
